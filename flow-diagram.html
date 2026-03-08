@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Knowledge Graph MCP — Full Sequence Diagram</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #ffffff;
+    color: #111827;
+    padding: 48px 32px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    color: #374151;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 11px;
+    color: #9ca3af;
+    margin-bottom: 40px;
+    letter-spacing: 1px;
+  }
+  svg { display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<h1>Knowledge Graph MCP — Full Sequence Diagram</h1>
+<p class="subtitle">MCP Initialization · Store Flow · Query Flow</p>
+
+<svg viewBox="0 0 1200 1960" width="100%" xmlns="http://www.w3.org/2000/svg"
+     style="max-width:1200px; font-family:'Segoe UI',system-ui,sans-serif;">
+
+  <!-- ── Background ── -->
+  <rect width="1200" height="1960" fill="#ffffff"/>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       ARROW MARKERS — one per colour, right + left pointing
+  ══════════════════════════════════════════════════════════════════ -->
+  <defs>
+    <!-- solid fill markers -->
+    <marker id="r-slate"   markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7Z" fill="#374151"/></marker>
+    <marker id="r-indigo"  markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7Z" fill="#4f46e5"/></marker>
+    <marker id="r-sky"     markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7Z" fill="#0284c7"/></marker>
+    <marker id="r-violet"  markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7Z" fill="#7c3aed"/></marker>
+    <marker id="r-purple"  markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7Z" fill="#9333ea"/></marker>
+    <marker id="r-pink"    markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7Z" fill="#db2777"/></marker>
+    <marker id="r-emerald" markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7Z" fill="#059669"/></marker>
+    <marker id="r-amber"   markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7Z" fill="#d97706"/></marker>
+    <!-- left-pointing -->
+    <marker id="l-slate"   markerWidth="9" markerHeight="9" refX="1" refY="3.5" orient="auto"><path d="M9,0 L0,3.5 L9,7Z" fill="#374151"/></marker>
+    <marker id="l-indigo"  markerWidth="9" markerHeight="9" refX="1" refY="3.5" orient="auto"><path d="M9,0 L0,3.5 L9,7Z" fill="#4f46e5"/></marker>
+    <marker id="l-sky"     markerWidth="9" markerHeight="9" refX="1" refY="3.5" orient="auto"><path d="M9,0 L0,3.5 L9,7Z" fill="#0284c7"/></marker>
+    <marker id="l-violet"  markerWidth="9" markerHeight="9" refX="1" refY="3.5" orient="auto"><path d="M9,0 L0,3.5 L9,7Z" fill="#7c3aed"/></marker>
+    <marker id="l-purple"  markerWidth="9" markerHeight="9" refX="1" refY="3.5" orient="auto"><path d="M9,0 L0,3.5 L9,7Z" fill="#9333ea"/></marker>
+    <marker id="l-pink"    markerWidth="9" markerHeight="9" refX="1" refY="3.5" orient="auto"><path d="M9,0 L0,3.5 L9,7Z" fill="#db2777"/></marker>
+    <marker id="l-emerald" markerWidth="9" markerHeight="9" refX="1" refY="3.5" orient="auto"><path d="M9,0 L0,3.5 L9,7Z" fill="#059669"/></marker>
+    <marker id="l-amber"   markerWidth="9" markerHeight="9" refX="1" refY="3.5" orient="auto"><path d="M9,0 L0,3.5 L9,7Z" fill="#d97706"/></marker>
+  </defs>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       COLUMN X POSITIONS
+       User=70  LLM=200  MCPClient=340  MCPServer=480  Handler=600
+       Embeddings=710  Client=820  Neo4j=960
+  ══════════════════════════════════════════════════════════════════ -->
+
+  <!-- ── PARTICIPANT HEADER BOXES ── -->
+  <g font-size="11" font-weight="700" text-anchor="middle">
+    <!-- User -->
+    <rect x="16"  y="16" width="108" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="70"  y="32" fill="#374151">USER</text>
+    <text x="70"  y="47" font-size="9" font-weight="400" fill="#94a3b8">human</text>
+
+    <!-- LLM -->
+    <rect x="146" y="16" width="108" height="40" rx="6" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/>
+    <text x="200" y="32" fill="#4338ca">LLM</text>
+    <text x="200" y="47" font-size="9" font-weight="400" fill="#818cf8">Claude model</text>
+
+    <!-- MCP Client -->
+    <rect x="286" y="16" width="108" height="40" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
+    <text x="340" y="32" fill="#0369a1">MCP CLIENT</text>
+    <text x="340" y="47" font-size="9" font-weight="400" fill="#38bdf8">host app layer</text>
+
+    <!-- MCP Server -->
+    <rect x="426" y="16" width="108" height="40" rx="6" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+    <text x="480" y="32" fill="#6d28d9">MCP SERVER</text>
+    <text x="480" y="47" font-size="9" font-weight="400" fill="#a78bfa">server.py</text>
+
+    <!-- Handler -->
+    <rect x="546" y="16" width="108" height="40" rx="6" fill="#faf5ff" stroke="#9333ea" stroke-width="1.5"/>
+    <text x="600" y="32" fill="#7e22ce">HANDLER</text>
+    <text x="600" y="47" font-size="9" font-weight="400" fill="#c084fc">store / query .py</text>
+
+    <!-- Embeddings -->
+    <rect x="656" y="16" width="108" height="40" rx="6" fill="#fdf2f8" stroke="#db2777" stroke-width="1.5"/>
+    <text x="710" y="32" fill="#be185d">EMBEDDINGS</text>
+    <text x="710" y="47" font-size="9" font-weight="400" fill="#f472b6">embeddings.py</text>
+
+    <!-- Client.py -->
+    <rect x="766" y="16" width="108" height="40" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+    <text x="820" y="32" fill="#047857">CLIENT.PY</text>
+    <text x="820" y="47" font-size="9" font-weight="400" fill="#34d399">neo4j ops</text>
+
+    <!-- Neo4j -->
+    <rect x="906" y="16" width="108" height="40" rx="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"/>
+    <text x="960" y="32" fill="#b45309">NEO4J DB</text>
+    <text x="960" y="47" font-size="9" font-weight="400" fill="#fbbf24">graph + vector</text>
+  </g>
+
+  <!-- ── LIFELINES ── -->
+  <g stroke-dasharray="7,5" stroke-width="1.4" opacity="0.4">
+    <line x1="70"  y1="56" x2="70"  y2="1958" stroke="#94a3b8"/>
+    <line x1="200" y1="56" x2="200" y2="1958" stroke="#6366f1"/>
+    <line x1="340" y1="56" x2="340" y2="1958" stroke="#0284c7"/>
+    <line x1="480" y1="56" x2="480" y2="1958" stroke="#7c3aed"/>
+    <line x1="600" y1="56" x2="600" y2="1958" stroke="#9333ea"/>
+    <line x1="710" y1="56" x2="710" y2="1958" stroke="#db2777"/>
+    <line x1="820" y1="56" x2="820" y2="1958" stroke="#059669"/>
+    <line x1="960" y1="56" x2="960" y2="1958" stroke="#d97706"/>
+  </g>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       SECTION 1 — MCP INITIALIZATION
+  ══════════════════════════════════════════════════════════════════ -->
+  <rect x="20" y="72" width="1160" height="354" rx="8" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+  <text x="600" y="94" font-size="11" font-weight="800" fill="#15803d" text-anchor="middle" letter-spacing="2">PHASE 0 — MCP INITIALIZATION  (happens once at startup)</text>
+
+  <!-- Step 1: Claude Desktop launches MCP Server process -->
+  <line x1="348" y1="116" x2="472" y2="116" stroke="#7c3aed" stroke-width="2" marker-end="url(#r-violet)"/>
+  <text x="410" y="110" font-size="10.5" font-weight="600" fill="#6d28d9" text-anchor="middle">spawn process (stdio)</text>
+  <text x="410" y="126" font-size="9" fill="#9ca3af" text-anchor="middle">Claude Desktop starts server.py</text>
+
+  <!-- Step 2: MCP Server bootstraps -->
+  <rect x="435" y="140" width="90" height="22" rx="4" fill="#f5f3ff" stroke="#a78bfa" stroke-width="1"/>
+  <text x="480" y="155" font-size="9.5" font-weight="600" fill="#7c3aed" text-anchor="middle">startup bootstrap</text>
+  <text x="700" y="152" font-size="9" fill="#9ca3af" text-anchor="middle">get_driver() → Neo4j connect</text>
+  <text x="700" y="164" font-size="9" fill="#9ca3af" text-anchor="middle">embed_text("warmup") → load model</text>
+  <text x="700" y="176" font-size="9" fill="#9ca3af" text-anchor="middle">initialise() → create constraints + vector index</text>
+
+  <!-- Step 3: MCP Client calls list_tools -->
+  <line x1="348" y1="196" x2="472" y2="196" stroke="#7c3aed" stroke-width="2" marker-end="url(#r-violet)"/>
+  <text x="410" y="190" font-size="10.5" font-weight="600" fill="#6d28d9" text-anchor="middle">list_tools()</text>
+  <text x="410" y="206" font-size="9" fill="#9ca3af" text-anchor="middle">MCP JSON-RPC over stdio</text>
+
+  <!-- Step 4: Server returns 4 tool definitions -->
+  <line x1="472" y1="228" x2="348" y2="228" stroke="#0284c7" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#l-sky)"/>
+  <text x="410" y="222" font-size="10.5" font-weight="600" fill="#0369a1" text-anchor="middle">[store_fact, query_knowledge, list_profiles, list_categories]</text>
+  <text x="410" y="238" font-size="9" fill="#9ca3af" text-anchor="middle">only 4 tools  ≈ 2K tokens total</text>
+
+  <!-- anti-bloat callout -->
+  <rect x="160" y="250" width="760" height="34" rx="5" fill="#fefce8" stroke="#fde047" stroke-width="1.2"/>
+  <text x="540" y="264" font-size="10" font-weight="700" fill="#854d0e" text-anchor="middle">WHY ONLY 4 TOOLS:  Each tool definition costs tokens in the LLM context window.</text>
+  <text x="540" y="278" font-size="9.5" fill="#92400e" text-anchor="middle">Exposing 50+ tools = 150K tokens consumed before the user says anything. 4 tools = 2K tokens. All internal logic stays hidden inside the server.</text>
+
+  <!-- Step 5: MCP Client hands tool list to LLM -->
+  <line x1="332" y1="302" x2="208" y2="302" stroke="#0284c7" stroke-width="2" marker-end="url(#l-sky)"/>
+  <text x="270" y="296" font-size="10.5" font-weight="600" fill="#0369a1" text-anchor="middle">inject tool definitions into system prompt</text>
+  <text x="270" y="312" font-size="9" fill="#9ca3af" text-anchor="middle">LLM now knows exactly 4 tools and when to call each</text>
+
+  <!-- Step 6: LLM ready -->
+  <rect x="156" y="324" width="88" height="22" rx="4" fill="#eef2ff" stroke="#818cf8" stroke-width="1"/>
+  <text x="200" y="339" font-size="9.5" font-weight="600" fill="#4338ca" text-anchor="middle">LLM ready</text>
+  <text x="400" y="336" font-size="9" fill="#9ca3af" text-anchor="middle">LLM reads tool descriptions to understand WHEN to call each — not just what they do</text>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       SECTION 2 — STORE FLOW
+  ══════════════════════════════════════════════════════════════════ -->
+  <rect x="20" y="448" width="1160" height="748" rx="8" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.5"/>
+  <text x="600" y="470" font-size="11" font-weight="800" fill="#0369a1" text-anchor="middle" letter-spacing="2">PHASE 1 — STORE FLOW  (user sends data to save)</text>
+
+  <!-- ── sub-phase: user request + tool decision ── -->
+  <text x="600" y="492" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="middle" letter-spacing="1.5">USER REQUEST + LLM TOOL DECISION</text>
+
+  <!-- 1. User → LLM -->
+  <line x1="78" y1="506" x2="192" y2="506" stroke="#4f46e5" stroke-width="2" marker-end="url(#r-indigo)"/>
+  <text x="135" y="500" font-size="10.5" font-weight="600" fill="#4338ca" text-anchor="middle">"Remember: JWT tokens expire in 15 mins"</text>
+  <text x="135" y="516" font-size="9" fill="#9ca3af" text-anchor="middle">natural language</text>
+
+  <!-- 2. LLM decides to call store_fact -->
+  <rect x="156" y="526" width="88" height="32" rx="4" fill="#eef2ff" stroke="#818cf8" stroke-width="1"/>
+  <text x="200" y="539" font-size="9.5" font-weight="600" fill="#4338ca" text-anchor="middle">reads tool defs</text>
+  <text x="200" y="552" font-size="9" fill="#6366f1" text-anchor="middle">→ call store_fact</text>
+
+  <!-- 3. LLM → MCP Client: tool call -->
+  <line x1="208" y1="572" x2="332" y2="572" stroke="#0284c7" stroke-width="2" marker-end="url(#r-sky)"/>
+  <text x="270" y="566" font-size="10.5" font-weight="600" fill="#0369a1" text-anchor="middle">store_fact(fact, category="auth")</text>
+  <text x="270" y="582" font-size="9" fill="#9ca3af" text-anchor="middle">LLM emits tool call — no profile_id (optional)</text>
+
+  <!-- 4. MCP Client → MCP Server: JSON-RPC -->
+  <line x1="348" y1="600" x2="472" y2="600" stroke="#7c3aed" stroke-width="2" marker-end="url(#r-violet)"/>
+  <text x="410" y="594" font-size="10.5" font-weight="600" fill="#6d28d9" text-anchor="middle">call_tool("store_fact", args)</text>
+  <text x="410" y="610" font-size="9" fill="#9ca3af" text-anchor="middle">MCP JSON-RPC over stdio</text>
+
+  <!-- 5. Server → Handler -->
+  <line x1="488" y1="628" x2="592" y2="628" stroke="#9333ea" stroke-width="2" marker-end="url(#r-purple)"/>
+  <text x="540" y="622" font-size="10.5" font-weight="600" fill="#7e22ce" text-anchor="middle">store.handle(args)</text>
+
+  <!-- ── sub-phase: embed ── -->
+  <text x="600" y="650" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="middle" letter-spacing="1.5">EMBED</text>
+
+  <!-- 6. Handler → Embeddings -->
+  <line x1="608" y1="664" x2="702" y2="664" stroke="#db2777" stroke-width="2" marker-end="url(#r-pink)"/>
+  <text x="655" y="658" font-size="10.5" font-weight="600" fill="#be185d" text-anchor="middle">embed_text(fact)</text>
+  <text x="655" y="674" font-size="9" fill="#9ca3af" text-anchor="middle">CPU-bound → thread pool (non-blocking)</text>
+
+  <!-- 7. Embeddings returns vector -->
+  <line x1="702" y1="694" x2="608" y2="694" stroke="#db2777" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-pink)"/>
+  <text x="655" y="688" font-size="10.5" font-weight="600" fill="#be185d" text-anchor="middle">[0.12, 0.45, …]  384-dim vector</text>
+
+  <!-- ── sub-phase: profile resolve ── -->
+  <rect x="30" y="706" width="1140" height="14" rx="3" fill="#fef9c3" opacity="0.6"/>
+  <text x="600" y="717" font-size="9" font-weight="700" fill="#92400e" text-anchor="middle" letter-spacing="1.5">PROFILE RESOLVE  (only runs when profile_id is omitted)</text>
+
+  <!-- 8. Handler → Client: find_best_profile -->
+  <line x1="608" y1="730" x2="812" y2="730" stroke="#059669" stroke-width="2" marker-end="url(#r-emerald)"/>
+  <text x="710" y="724" font-size="10.5" font-weight="600" fill="#047857" text-anchor="middle">find_best_profile(embedding)</text>
+
+  <!-- 9. Client → Neo4j: ANN across all profiles -->
+  <line x1="828" y1="752" x2="952" y2="752" stroke="#d97706" stroke-width="2" marker-end="url(#r-amber)"/>
+  <text x="890" y="746" font-size="10.5" font-weight="600" fill="#b45309" text-anchor="middle">ANN top-1, no profile filter, score &gt; 0.75</text>
+
+  <!-- 10. Neo4j returns matched profile -->
+  <line x1="952" y1="772" x2="828" y2="772" stroke="#d97706" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-amber)"/>
+  <line x1="812" y1="772" x2="608" y2="772" stroke="#059669" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-emerald)"/>
+  <text x="890" y="766" font-size="9.5" fill="#b45309" text-anchor="middle">matched profile_id</text>
+  <text x="710" y="766" font-size="9.5" fill="#047857" text-anchor="middle">OR auto-create "{category}_{date}"</text>
+
+  <!-- ── sub-phase: duplicate check ── -->
+  <text x="600" y="796" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="middle" letter-spacing="1.5">DUPLICATE CHECK</text>
+
+  <!-- 11. Handler → Client: find_duplicate -->
+  <line x1="608" y1="810" x2="812" y2="810" stroke="#059669" stroke-width="2" marker-end="url(#r-emerald)"/>
+  <text x="710" y="804" font-size="10.5" font-weight="600" fill="#047857" text-anchor="middle">find_duplicate(embedding, profile_id)</text>
+
+  <!-- 12. Client → Neo4j: vector search score > 0.95 -->
+  <line x1="828" y1="830" x2="952" y2="830" stroke="#d97706" stroke-width="2" marker-end="url(#r-amber)"/>
+  <text x="890" y="824" font-size="10.5" font-weight="600" fill="#b45309" text-anchor="middle">ANN top-1, WHERE profile_id=X, score &gt; 0.95</text>
+
+  <!-- 13. Neo4j → Client: None -->
+  <line x1="952" y1="850" x2="828" y2="850" stroke="#d97706" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-amber)"/>
+  <text x="890" y="844" font-size="9.5" fill="#b45309" text-anchor="middle">None → proceed  |  text → SKIP</text>
+
+  <!-- skip note -->
+  <rect x="390" y="860" width="220" height="18" rx="4" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+  <text x="500" y="873" font-size="9.5" font-weight="600" fill="#dc2626" text-anchor="middle">⚠ duplicate → return {status:"skipped"}</text>
+
+  <!-- ── sub-phase: graph write ── -->
+  <text x="600" y="898" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="middle" letter-spacing="1.5">GRAPH WRITE — upsert nodes + create fact</text>
+
+  <!-- 14. upsert_profile + upsert_category -->
+  <line x1="608" y1="912" x2="812" y2="912" stroke="#059669" stroke-width="2" marker-end="url(#r-emerald)"/>
+  <text x="710" y="906" font-size="10.5" font-weight="600" fill="#047857" text-anchor="middle">upsert_profile()  +  upsert_category()</text>
+
+  <line x1="828" y1="930" x2="952" y2="930" stroke="#d97706" stroke-width="2" marker-end="url(#r-amber)"/>
+  <text x="890" y="924" font-size="10.5" font-weight="600" fill="#b45309" text-anchor="middle">MERGE Profile → HAS_CATEGORY → Category</text>
+  <text x="890" y="940" font-size="9" fill="#9ca3af" text-anchor="middle">no-op if nodes already exist</text>
+
+  <!-- 15. write_fact -->
+  <line x1="608" y1="956" x2="812" y2="956" stroke="#059669" stroke-width="2" marker-end="url(#r-emerald)"/>
+  <text x="710" y="950" font-size="10.5" font-weight="600" fill="#047857" text-anchor="middle">write_fact(text, embedding, profile_id, category)</text>
+
+  <line x1="828" y1="974" x2="952" y2="974" stroke="#d97706" stroke-width="2" marker-end="url(#r-amber)"/>
+  <text x="890" y="968" font-size="10.5" font-weight="600" fill="#b45309" text-anchor="middle">CREATE Fact {id, text, embedding, …}</text>
+  <text x="890" y="984" font-size="9" fill="#9ca3af" text-anchor="middle">CREATE (Category)-[:HAS_FACT]→(Fact)</text>
+
+  <!-- ── sub-phase: RELATED_TO linking ── -->
+  <rect x="30" y="996" width="1140" height="14" rx="3" fill="#dcfce7" opacity="0.7"/>
+  <text x="600" y="1007" font-size="9" font-weight="700" fill="#15803d" text-anchor="middle" letter-spacing="1.5">RELATED_TO LINKING  — auto wire semantic neighbours</text>
+
+  <!-- 16. ANN within same profile+category -->
+  <line x1="828" y1="1020" x2="952" y2="1020" stroke="#d97706" stroke-width="2" marker-end="url(#r-amber)"/>
+  <text x="890" y="1014" font-size="10.5" font-weight="600" fill="#b45309" text-anchor="middle">ANN top-20, same profile+category, score &gt; 0.70</text>
+  <text x="890" y="1030" font-size="9" fill="#9ca3af" text-anchor="middle">AND id ≠ new_fact_id</text>
+
+  <!-- 17. Neo4j returns related fact ids -->
+  <line x1="952" y1="1048" x2="828" y2="1048" stroke="#d97706" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-amber)"/>
+  <text x="890" y="1042" font-size="9.5" fill="#b45309" text-anchor="middle">[fact-B, fact-C, fact-D, …]</text>
+
+  <!-- 18. MERGE RELATED_TO edges -->
+  <line x1="828" y1="1068" x2="952" y2="1068" stroke="#d97706" stroke-width="2" marker-end="url(#r-amber)"/>
+  <text x="890" y="1062" font-size="10.5" font-weight="600" fill="#b45309" text-anchor="middle">MERGE (new)−[:RELATED_TO]→(each match)</text>
+  <text x="890" y="1078" font-size="9" fill="#9ca3af" text-anchor="middle">MERGE (each match)−[:RELATED_TO]→(new)  bidirectional</text>
+
+  <!-- 19. returns (fact_id, related_count) -->
+  <line x1="812" y1="1096" x2="608" y2="1096" stroke="#059669" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-emerald)"/>
+  <text x="710" y="1090" font-size="10.5" font-weight="600" fill="#047857" text-anchor="middle">(fact_id, related_linked=3)</text>
+
+  <!-- ── sub-phase: respond ── -->
+  <text x="600" y="1118" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="middle" letter-spacing="1.5">RESPOND</text>
+
+  <line x1="592" y1="1130" x2="488" y2="1130" stroke="#9333ea" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-purple)"/>
+  <line x1="472" y1="1148" x2="348" y2="1148" stroke="#7c3aed" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-violet)"/>
+  <line x1="332" y1="1166" x2="208" y2="1166" stroke="#4f46e5" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-indigo)"/>
+  <line x1="192" y1="1184" x2="78"  y2="1184" stroke="#374151" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-slate)"/>
+  <text x="540" y="1124" font-size="9.5" fill="#7e22ce" text-anchor="middle">{status:"saved", related_linked:3, profile_resolved:"matched"}</text>
+  <text x="410" y="1142" font-size="9.5" fill="#6d28d9" text-anchor="middle">JSON result via MCP stdio</text>
+  <text x="270" y="1160" font-size="9.5" fill="#4338ca" text-anchor="middle">tool result injected back into context</text>
+  <text x="135" y="1178" font-size="9.5" fill="#374151" text-anchor="middle">"Saved! Linked to 3 related facts"</text>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       SECTION 3 — QUERY FLOW
+  ══════════════════════════════════════════════════════════════════ -->
+  <rect x="20" y="1212" width="1160" height="720" rx="8" fill="#fdf4ff" stroke="#d8b4fe" stroke-width="1.5"/>
+  <text x="600" y="1234" font-size="11" font-weight="800" fill="#6d28d9" text-anchor="middle" letter-spacing="2">PHASE 2 — QUERY FLOW  (user asks about something)</text>
+
+  <!-- ── sub-phase: user request + tool decision ── -->
+  <text x="600" y="1256" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="middle" letter-spacing="1.5">USER REQUEST + LLM TOOL DECISION</text>
+
+  <!-- 1. User → LLM -->
+  <line x1="78" y1="1270" x2="192" y2="1270" stroke="#4f46e5" stroke-width="2" marker-end="url(#r-indigo)"/>
+  <text x="135" y="1264" font-size="10.5" font-weight="600" fill="#4338ca" text-anchor="middle">"How does token auth work in octa?"</text>
+
+  <!-- 2. LLM decides to call query_knowledge -->
+  <rect x="156" y="1282" width="88" height="32" rx="4" fill="#eef2ff" stroke="#818cf8" stroke-width="1"/>
+  <text x="200" y="1295" font-size="9.5" font-weight="600" fill="#4338ca" text-anchor="middle">reads tool defs</text>
+  <text x="200" y="1308" font-size="9" fill="#6366f1" text-anchor="middle">→ query_knowledge</text>
+
+  <!-- 3. LLM → MCP Client -->
+  <line x1="208" y1="1328" x2="332" y2="1328" stroke="#0284c7" stroke-width="2" marker-end="url(#r-sky)"/>
+  <text x="270" y="1322" font-size="10.5" font-weight="600" fill="#0369a1" text-anchor="middle">query_knowledge(query, profile_id="octa", top_k=5)</text>
+
+  <!-- 4. MCP Client → MCP Server -->
+  <line x1="348" y1="1350" x2="472" y2="1350" stroke="#7c3aed" stroke-width="2" marker-end="url(#r-violet)"/>
+  <text x="410" y="1344" font-size="10.5" font-weight="600" fill="#6d28d9" text-anchor="middle">call_tool("query_knowledge", args)</text>
+
+  <!-- 5. Server → Handler -->
+  <line x1="488" y1="1372" x2="592" y2="1372" stroke="#9333ea" stroke-width="2" marker-end="url(#r-purple)"/>
+  <text x="540" y="1366" font-size="10.5" font-weight="600" fill="#7e22ce" text-anchor="middle">query.handle(args)</text>
+
+  <!-- ── sub-phase: embed query ── -->
+  <text x="600" y="1394" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="middle" letter-spacing="1.5">EMBED QUERY  (same model = same vector space as stored facts)</text>
+
+  <line x1="608" y1="1408" x2="702" y2="1408" stroke="#db2777" stroke-width="2" marker-end="url(#r-pink)"/>
+  <text x="655" y="1402" font-size="10.5" font-weight="600" fill="#be185d" text-anchor="middle">embed_text(query)</text>
+
+  <line x1="702" y1="1428" x2="608" y2="1428" stroke="#db2777" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-pink)"/>
+  <text x="655" y="1422" font-size="10.5" font-weight="600" fill="#be185d" text-anchor="middle">query_embedding  [384 floats]</text>
+
+  <!-- ── sub-phase: phase 1 vector search ── -->
+  <rect x="30" y="1440" width="1140" height="14" rx="3" fill="#dbeafe" opacity="0.8"/>
+  <text x="600" y="1451" font-size="9" font-weight="700" fill="#1d4ed8" text-anchor="middle" letter-spacing="1.5">RETRIEVAL PHASE 1 — VECTOR SIMILARITY SEARCH  (finds semantically close facts)</text>
+
+  <!-- 6. Handler → Client: semantic_search -->
+  <line x1="608" y1="1464" x2="812" y2="1464" stroke="#059669" stroke-width="2" marker-end="url(#r-emerald)"/>
+  <text x="710" y="1458" font-size="10.5" font-weight="600" fill="#047857" text-anchor="middle">semantic_search(embedding, "octa", top_k=5)</text>
+
+  <!-- 7. Client → Neo4j: ANN vector index -->
+  <line x1="828" y1="1484" x2="952" y2="1484" stroke="#d97706" stroke-width="2" marker-end="url(#r-amber)"/>
+  <text x="890" y="1478" font-size="10.5" font-weight="600" fill="#b45309" text-anchor="middle">ANN top-5 WHERE profile_id="octa"</text>
+  <text x="890" y="1494" font-size="9" fill="#9ca3af" text-anchor="middle">fact_embeddings index — cosine score DESC</text>
+
+  <!-- 8. Neo4j returns matched facts -->
+  <line x1="952" y1="1512" x2="828" y2="1512" stroke="#d97706" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-amber)"/>
+  <text x="890" y="1506" font-size="9.5" fill="#b45309" text-anchor="middle">[{id:A, score:0.91}, {id:B, 0.87}, {id:C, 0.82} …]</text>
+
+  <!-- ── sub-phase: phase 2 graph traversal ── -->
+  <rect x="30" y="1524" width="1140" height="14" rx="3" fill="#dcfce7" opacity="0.8"/>
+  <text x="600" y="1535" font-size="9" font-weight="700" fill="#15803d" text-anchor="middle" letter-spacing="1.5">RETRIEVAL PHASE 2 — GRAPH TRAVERSAL  (follows pre-computed edges — no second vector search)</text>
+
+  <!-- 9. For each matched fact: traverse RELATED_TO -->
+  <line x1="828" y1="1548" x2="952" y2="1548" stroke="#d97706" stroke-width="2" marker-end="url(#r-amber)"/>
+  <text x="890" y="1542" font-size="10.5" font-weight="600" fill="#b45309" text-anchor="middle">OPTIONAL MATCH (fact-A)−[:RELATED_TO]→(r)</text>
+  <text x="890" y="1558" font-size="9" fill="#9ca3af" text-anchor="middle">traverse pre-computed edges — O(degree), not O(n)</text>
+
+  <line x1="952" y1="1574" x2="828" y2="1574" stroke="#d97706" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-amber)"/>
+  <text x="890" y="1568" font-size="9.5" fill="#b45309" text-anchor="middle">neighbour texts  [fact-D, fact-E]</text>
+
+  <!-- repeat note -->
+  <rect x="766" y="1582" width="248" height="18" rx="3" fill="#fffbeb" stroke="#fde68a" stroke-width="1"/>
+  <text x="890" y="1595" font-size="9" fill="#92400e" text-anchor="middle">↻ repeated for each of the top-5 matched facts</text>
+
+  <!-- why graph traversal not second vector search -->
+  <rect x="30" y="1608" width="1140" height="36" rx="5" fill="#f0fdf4" stroke="#86efac" stroke-width="1.2"/>
+  <text x="600" y="1622" font-size="10" font-weight="700" fill="#15803d" text-anchor="middle">WHY GRAPH TRAVERSAL INSTEAD OF A SECOND VECTOR SEARCH:</text>
+  <text x="600" y="1636" font-size="9.5" fill="#166534" text-anchor="middle">Vector space finds correlation. Correlation ≠ contextual relevance. "JWT expiry" and "cookie jar config" are both near "auth" in embedding space but belong to different bugs.</text>
+
+  <!-- ── sub-phase: assemble + respond ── -->
+  <text x="600" y="1662" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="middle" letter-spacing="1.5">ASSEMBLE + RESPOND</text>
+
+  <!-- result shape -->
+  <rect x="614" y="1668" width="340" height="56" rx="5" fill="#f9fafb" stroke="#d1d5db" stroke-width="1"/>
+  <text x="785" y="1683" font-size="9.5" font-family="monospace" fill="#059669" text-anchor="middle">{ fact: "JWT expiry is 15 mins",</text>
+  <text x="785" y="1697" font-size="9.5" font-family="monospace" fill="#059669" text-anchor="middle">  category: "auth",  score: 0.91,</text>
+  <text x="785" y="1711" font-size="9.5" font-family="monospace" fill="#059669" text-anchor="middle">  related_facts: ["Refresh token …"] }</text>
+  <text x="785" y="1720" font-size="9" fill="#9ca3af" text-anchor="middle">graph-scoped: only same-profile, same-category neighbours</text>
+
+  <!-- return chain -->
+  <line x1="812" y1="1738" x2="608" y2="1738" stroke="#059669" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-emerald)"/>
+  <text x="710" y="1732" font-size="9.5" fill="#047857" text-anchor="middle">[{fact, category, score, related_facts}, …]</text>
+
+  <line x1="592" y1="1756" x2="488" y2="1756" stroke="#9333ea" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-purple)"/>
+  <line x1="472" y1="1772" x2="348" y2="1772" stroke="#7c3aed" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-violet)"/>
+  <line x1="332" y1="1788" x2="208" y2="1788" stroke="#4f46e5" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-indigo)"/>
+  <text x="540" y="1750" font-size="9.5" fill="#7e22ce" text-anchor="middle">{status:"ok", results:[…]}</text>
+  <text x="410" y="1766" font-size="9.5" fill="#6d28d9" text-anchor="middle">JSON result via stdio</text>
+  <text x="270" y="1782" font-size="9.5" fill="#4338ca" text-anchor="middle">tool result injected into LLM context</text>
+
+  <!-- LLM synthesises -->
+  <rect x="156" y="1798" width="88" height="22" rx="4" fill="#eef2ff" stroke="#818cf8" stroke-width="1"/>
+  <text x="200" y="1813" font-size="9" font-weight="600" fill="#4338ca" text-anchor="middle">synthesise answer</text>
+
+  <line x1="192" y1="1830" x2="78" y2="1830" stroke="#374151" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#l-slate)"/>
+  <text x="135" y="1824" font-size="10.5" font-weight="600" fill="#374151" text-anchor="middle">"JWT tokens expire after 15 mins…"</text>
+
+  <!-- ══ FINAL FOOTER NOTE ══ -->
+  <rect x="20" y="1900" width="1160" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb" stroke-width="1.2"/>
+  <text x="600" y="1916" font-size="10" font-weight="700" fill="#374151" text-anchor="middle">CONTEXT WINDOW DISCIPLINE:  LLM holds only 4 tool definitions at all times.  Only exact-match facts from the graph reach LLM context.</text>
+  <text x="600" y="1933" font-size="9.5" fill="#6b7280" text-anchor="middle">Graph traversal replaces speculative vector correlation — no unrelated facts leak in.  Internal functions (_link_related_facts, find_best_profile, upsert_*) never become tools.</text>
+
+</svg>
+</body>
+</html>

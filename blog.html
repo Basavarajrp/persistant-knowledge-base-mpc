@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>I Built a Persistent AI Memory Server — Here's Everything I Learned</title>
+<style>
+:root {
+  --ink:#111827; --ink-soft:#374151; --ink-light:#6b7280;
+  --bg:#fff; --bg-soft:#f9fafb; --bg-mid:#f3f4f6; --border:#e5e7eb;
+  --blue:#2563eb; --blue-bg:#eff6ff; --blue-bdr:#bfdbfe;
+  --indigo:#4f46e5; --indigo-bg:#eef2ff;
+  --green:#16a34a; --green-bg:#f0fdf4; --green-bdr:#bbf7d0;
+  --amber:#d97706; --amber-bg:#fffbeb; --amber-bdr:#fde68a;
+  --red:#dc2626; --red-bg:#fef2f2; --red-bdr:#fecaca;
+  --purple:#7c3aed; --purple-bg:#f5f3ff;
+  --pink:#db2777; --teal:#0d9488; --teal-bg:#f0fdfa;
+  --max-w:760px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Georgia','Times New Roman',serif;font-size:18px;line-height:1.85;color:var(--ink);background:#fff}
+.container{max-width:var(--max-w);margin:0 auto;padding:0 24px}
+.wide{max-width:960px;margin:0 auto;padding:0 24px}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%);padding:88px 24px 80px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(99,102,241,.18) 0%,transparent 70%)}
+.hero-tag{display:inline-block;font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#a5b4fc;background:rgba(99,102,241,.15);border:1px solid rgba(165,180,252,.3);padding:6px 18px;border-radius:100px;margin-bottom:28px}
+.hero h1{font-family:'Segoe UI',system-ui,sans-serif;font-size:clamp(26px,5vw,46px);font-weight:800;line-height:1.12;color:#fff;max-width:700px;margin:0 auto 20px}
+.hero h1 span{color:#a5b4fc}
+.hero-sub{font-family:'Segoe UI',system-ui,sans-serif;font-size:16px;color:#94a3b8;max-width:560px;margin:0 auto 36px;line-height:1.75}
+.hero-meta{font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;color:#64748b;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+.hero-meta span+span::before{content:'·';margin-right:16px}
+
+/* Story banners */
+.story-banner{background:linear-gradient(to right,#fefce8,#fff7ed);border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;padding:20px 24px;margin:36px 0;font-family:'Segoe UI',system-ui,sans-serif;font-size:15px;line-height:1.75;color:#374151}
+.story-banner .byline{font-size:10px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:#d97706;margin-bottom:8px}
+
+/* Article */
+article{padding:60px 0 90px}
+p{margin-bottom:1.45em;color:var(--ink-soft)}
+h2{font-family:'Segoe UI',system-ui,sans-serif;font-size:27px;font-weight:800;color:var(--ink);margin:60px 0 18px;line-height:1.2}
+h3{font-family:'Segoe UI',system-ui,sans-serif;font-size:20px;font-weight:700;color:var(--ink);margin:40px 0 14px}
+strong{color:var(--ink);font-weight:700}
+code{font-family:'Menlo','Consolas',monospace;font-size:.82em;background:var(--bg-mid);color:var(--indigo);padding:2px 6px;border-radius:4px;border:1px solid var(--border)}
+a{color:var(--blue);text-decoration:underline;text-underline-offset:2px}
+
+/* Section label */
+.section-label{display:inline-flex;align-items:center;gap:10px;font-family:'Segoe UI',system-ui,sans-serif;font-size:10px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px}
+.section-label .pill{padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800}
+
+/* Callouts */
+.callout{border-radius:12px;padding:20px 26px;margin:32px 0;border-left:4px solid;font-family:'Segoe UI',system-ui,sans-serif;font-size:15px;line-height:1.7}
+.callout-title{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+.callout.analogy{background:var(--amber-bg);border-color:var(--amber)}
+.callout.analogy .callout-title{color:var(--amber)}
+.callout.insight{background:var(--blue-bg);border-color:var(--blue)}
+.callout.insight .callout-title{color:var(--blue)}
+.callout.warning{background:var(--red-bg);border-color:var(--red)}
+.callout.warning .callout-title{color:var(--red)}
+.callout.success{background:var(--green-bg);border-color:var(--green)}
+.callout.success .callout-title{color:var(--green)}
+.callout.purple{background:var(--purple-bg);border-color:var(--purple)}
+.callout.purple .callout-title{color:var(--purple)}
+
+/* Code block */
+.code-block{background:#0f172a;border-radius:12px;overflow:hidden;margin:28px 0;border:1px solid #1e293b}
+.code-block-header{display:flex;align-items:center;gap:8px;padding:10px 18px;background:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;font-weight:600;color:#64748b;border-bottom:1px solid #334155}
+.code-block-header .dot{width:10px;height:10px;border-radius:50%}
+.code-block pre{padding:22px 26px;margin:0;font-family:'Menlo','Consolas',monospace;font-size:13px;line-height:1.75;color:#e2e8f0;overflow-x:auto;white-space:pre}
+.hl-green{color:#86efac}.hl-blue{color:#93c5fd}.hl-pink{color:#f9a8d4}
+.hl-yellow{color:#fde68a}.hl-purple{color:#c4b5fd}.hl-gray{color:#64748b}
+.hl-amber{color:#fcd34d}.hl-cyan{color:#67e8f9}.hl-red{color:#fca5a5}
+
+/* Diagram */
+.diagram{background:var(--bg-soft);border:1px solid var(--border);border-radius:14px;padding:28px 24px;margin:36px 0;font-family:'Segoe UI',system-ui,sans-serif}
+.diagram-title{font-size:10px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:var(--ink-light);margin-bottom:22px;text-align:center}
+.diagram svg{display:block;margin:0 auto;max-width:100%}
+
+/* Pull quote */
+.pull-quote{font-size:22px;font-weight:700;line-height:1.45;font-family:'Segoe UI',system-ui,sans-serif;color:var(--indigo);text-align:center;padding:36px 16px;margin:48px 0;border-top:2px solid var(--indigo-bg);border-bottom:2px solid var(--indigo-bg)}
+
+/* Compare */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:32px 0}
+@media(max-width:560px){.compare{grid-template-columns:1fr}}
+.compare-card{border-radius:12px;padding:22px;font-family:'Segoe UI',system-ui,sans-serif}
+.compare-card h4{font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px}
+.compare-card li{display:block;font-size:14px;line-height:1.7;padding:3px 0}
+
+/* Steps */
+.steps{margin:28px 0}
+.step-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:22px}
+.step-num{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;font-weight:800;flex-shrink:0}
+.step-content{flex:1;padding-top:5px}
+.step-content strong{display:block;font-family:'Segoe UI',system-ui,sans-serif;font-size:15px;font-weight:700;margin-bottom:4px;color:var(--ink)}
+.step-content p{font-size:14px;margin:0;line-height:1.65;color:var(--ink-soft)}
+
+/* Divider */
+.divider{border:none;height:1px;background:var(--border);margin:56px 0}
+
+/* Threshold bar */
+.threshold-row{display:flex;align-items:stretch;font-family:'Segoe UI',system-ui,sans-serif;border-radius:12px;overflow:hidden;border:1px solid var(--border);margin:24px 0}
+.threshold-seg{flex:1;padding:16px 12px;text-align:center}
+.threshold-seg .val{font-size:22px;font-weight:900;line-height:1}
+.threshold-seg .lbl{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-top:4px}
+.threshold-seg .desc{font-size:11px;color:#6b7280;margin-top:3px}
+
+footer{background:#0f172a;color:#64748b;text-align:center;padding:44px 24px;font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;line-height:1.8}
+footer a{color:#818cf8;text-decoration:none}
+</style>
+</head>
+<body>
+
+<!-- ══ HERO ══ -->
+<div class="hero">
+  <div class="hero-tag">A Developer's Build Log</div>
+  <h1>I Built a <span>Persistent Memory Server</span><br/>for AI Tools.<br/>Here's Everything I Learned.</h1>
+  <p class="hero-sub">
+    MCP, Vector Databases, Graph Databases, hybrid embeddings, and the exact problem each one solves — told as the honest story of someone who had never heard of any of this six months ago.
+  </p>
+  <div class="hero-meta">
+    <span>20 min read</span>
+    <span>MCP · Neo4j · Embeddings · Graph + Vector</span>
+    <span>For developers with 1–3 years of experience</span>
+  </div>
+</div>
+
+<!-- ══ ARTICLE ══ -->
+<article>
+<div class="container">
+
+<!-- ─────────────────────────────────────── -->
+<!-- CHAPTER 1: THE SPARK                   -->
+<!-- ─────────────────────────────────────── -->
+<div class="section-label">
+  <div class="pill" style="background:#eef2ff;color:#4f46e5;">Chapter 1</div>
+  <span style="color:#6b7280;">How It Started</span>
+</div>
+<h2>I Found MCP. I Got Obsessed.</h2>
+
+<p>
+  A few months ago I came across something called the <strong>Model Context Protocol</strong> on Anthropic's engineering blog. I had no idea what it was. The name sounded corporate and dry. But I kept reading — and the more I understood, the more I wanted to build something with it.
+</p>
+
+<p>
+  I went through Anthropic's resources, watched videos, completed their certification. Then I started asking myself: <em>what's actually worth building?</em>
+</p>
+
+<p>
+  That's when I found <a href="https://github.com/getzep/graphiti" target="_blank">Graphiti by Zep</a>. It's an open-source project that solves persistent memory for LLMs — meaning AI tools that actually remember what they've been told across sessions. They had already cracked it. The architecture was elegant. The implementation was solid.
+</p>
+
+<p>
+  And here's the honest truth: <strong>I could have just used Graphiti.</strong> But I wanted hands-on experience. I wanted to understand the problem deeply enough to build my own version, even if that version was simpler. So I studied Graphiti, took inspiration from its ideas, and started designing from scratch.
+</p>
+
+<p>
+  Before I could build anything, I needed to understand the actual problem I was solving. And the problem turned out to be a lot more interesting than I expected.
+</p>
+
+<!-- ─────────────────────────────────────── -->
+<!-- CHAPTER 2: THE REAL PROBLEM            -->
+<!-- ─────────────────────────────────────── -->
+<hr class="divider"/>
+<div class="section-label">
+  <div class="pill" style="background:#fef2f2;color:#dc2626;">Chapter 2</div>
+  <span style="color:#6b7280;">The Problem</span>
+</div>
+<h2>The AI Context Tax I Was Paying Every Day</h2>
+
+<p>
+  Here's what my week looked like at the time. I was using <strong>Gemini</strong> for research because its context window was huge. <strong>Claude</strong> for architecture decisions because it reasoned well about system design. <strong>Cursor</strong> for writing code because it had good editor integration. Three different AI tools. Three completely separate memory systems. Which is to say: <em>no memory at all.</em>
+</p>
+
+<div class="story-banner">
+  <div class="byline">🔁 The Daily Frustration</div>
+  Every morning, I'd open Claude and paste the same paragraph: <em>"I'm building a fintech app, Project 1 uses PostgreSQL for user data, our auth uses signed tokens, we're on Next.js for the frontend, Project 2 is a content platform with a different schema..."</em><br/><br/>
+  Hit Claude's rate limit? Switch to Cursor. Open Cursor — paste the paragraph again. Come back to Claude next day — paste it again. I was spending more time explaining my context than actually working.
+</div>
+
+<p>
+  The obvious solution is: give all my AI tools a <strong>shared, persistent memory</strong> that any of them can read from and write to. One place where I store facts about my projects. Any AI tool I open already knows what I'm working on, what decisions I've made, what the codebase looks like.
+</p>
+
+<p>
+  That's the vision. Now — how do you actually build it?
+</p>
+
+<!-- ─────────────────────────────────────── -->
+<!-- CHAPTER 3: VECTOR DB ATTEMPT           -->
+<!-- ─────────────────────────────────────── -->
+<hr class="divider"/>
+<div class="section-label">
+  <div class="pill" style="background:#fffbeb;color:#d97706;">Chapter 3</div>
+  <span style="color:#6b7280;">Attempt 1</span>
+</div>
+<h2>First Idea: Just Use a Vector Database</h2>
+
+<p>
+  I'd heard of RAG — Retrieval-Augmented Generation. The idea is simple: you have a knowledge base stored in a Vector Database. When the AI needs context, you convert the question into a vector (a list of numbers representing its meaning), search for the most similar vectors in your database, and inject those results into the LLM's context window.
+</p>
+
+<p>
+  It sounded perfect for my use case. Store facts about my projects. When I open a new AI session, retrieve the most relevant facts. Done.
+</p>
+
+<p>
+  But first — what exactly is a vector, and how does "searching by meaning" actually work?
+</p>
+
+<h3>What Are Embeddings?</h3>
+
+<p>
+  An <strong>embedding</strong> is a way of converting text into a list of numbers — called a vector — where the numbers capture the <em>meaning</em> of the text, not just the words. Two sentences that mean similar things end up with similar vectors, even if they use completely different words.
+</p>
+
+<div class="diagram">
+  <div class="diagram-title">How Embeddings Capture Meaning &amp; Visual Vector Space</div>
+  <svg viewBox="0 0 900 430" width="100%" style="min-height:260px">
+    <defs>
+      <marker id="e1a" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#94a3b8"/></marker>
+      <marker id="e1b" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#8b5cf6"/></marker>
+      <marker id="e1c" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#dc2626"/></marker>
+      <marker id="e1g" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#16a34a"/></marker>
+      <marker id="e1ax" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#94a3b8"/></marker>
+    </defs>
+
+    <!-- ── PANEL BACKGROUNDS ── -->
+    <rect x="4" y="4" width="157" height="422" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <rect x="169" y="4" width="400" height="422" rx="10" fill="white" stroke="#e5e7eb" stroke-width="1.5"/>
+    <rect x="577" y="4" width="319" height="422" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+
+    <!-- ── LEFT PANEL ── -->
+    <text x="83" y="28" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af" font-weight="800" letter-spacing="0.5">WHAT ARE EMBEDDINGS?</text>
+    <text x="83" y="42" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#3b82f6">(Simple Definition)</text>
+    <line x1="14" y1="50" x2="151" y2="50" stroke="#bfdbfe" stroke-width="1"/>
+    <text x="12" y="70" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">Converting text to</text>
+    <text x="12" y="84" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">numbers that capture</text>
+    <text x="12" y="98" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">semantic meaning.</text>
+    <text x="12" y="124" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">Similar meanings →</text>
+    <text x="12" y="138" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">similar vectors →</text>
+    <text x="12" y="152" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">visually close.</text>
+    <text x="12" y="178" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">Unrelated meanings</text>
+    <text x="12" y="192" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">→ distant vectors.</text>
+
+    <!-- ── CENTER PANEL ── -->
+    <text x="369" y="28" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#374151" font-weight="800" letter-spacing="0.5">INPUT &amp; EMBEDDING PROCESS</text>
+
+    <!-- Input A (blue) -->
+    <rect x="177" y="54" width="122" height="60" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+    <text x="184" y="70" font-family="'Segoe UI',sans-serif" font-size="9" fill="#93c5fd">[Text A]</text>
+    <text x="238" y="84" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af" font-weight="600">"User logs in</text>
+    <text x="238" y="100" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af" font-weight="600">with password"</text>
+
+    <!-- Input B (blue) -->
+    <rect x="177" y="185" width="122" height="60" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+    <text x="184" y="201" font-family="'Segoe UI',sans-serif" font-size="9" fill="#93c5fd">[Text B]</text>
+    <text x="238" y="215" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af" font-weight="600">"Authentication</text>
+    <text x="238" y="231" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af" font-weight="600">via credentials"</text>
+
+    <!-- Input C (red) -->
+    <rect x="177" y="316" width="122" height="60" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+    <text x="184" y="332" font-family="'Segoe UI',sans-serif" font-size="9" fill="#fca5a5">[Text C]</text>
+    <text x="238" y="346" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#991b1b" font-weight="600">"The cat sleeps</text>
+    <text x="238" y="362" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#991b1b" font-weight="600">on the mat"</text>
+
+    <!-- Arrows: Inputs → Model -->
+    <path d="M299,84 C318,84 320,213 331,213" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#e1a)"/>
+    <path d="M299,215 L331,215" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#e1a)"/>
+    <path d="M299,346 C318,346 320,218 331,218" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#e1a)"/>
+    <text x="312" y="148" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#9ca3af">embed()</text>
+
+    <!-- Embedding Model box -->
+    <rect x="333" y="172" width="92" height="86" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1.5"/>
+    <!-- CPU chip icon -->
+    <rect x="346" y="184" width="66" height="50" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <line x1="339" y1="194" x2="346" y2="194" stroke="#475569" stroke-width="2"/>
+    <line x1="339" y1="204" x2="346" y2="204" stroke="#475569" stroke-width="2"/>
+    <line x1="339" y1="214" x2="346" y2="214" stroke="#475569" stroke-width="2"/>
+    <line x1="339" y1="224" x2="346" y2="224" stroke="#475569" stroke-width="2"/>
+    <line x1="412" y1="194" x2="419" y2="194" stroke="#475569" stroke-width="2"/>
+    <line x1="412" y1="204" x2="419" y2="204" stroke="#475569" stroke-width="2"/>
+    <line x1="412" y1="214" x2="419" y2="214" stroke="#475569" stroke-width="2"/>
+    <line x1="412" y1="224" x2="419" y2="224" stroke="#475569" stroke-width="2"/>
+    <text x="379" y="202" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#94a3b8" font-weight="700">EMBEDDING</text>
+    <text x="379" y="213" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#94a3b8" font-weight="700">MODEL</text>
+    <text x="379" y="248" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#60a5fa">all-MiniLM-L6-v2</text>
+
+    <!-- Arrows: Model → Output Vectors -->
+    <path d="M425,210 C436,210 436,84 448,84" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#e1a)"/>
+    <path d="M425,215 L448,215" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#e1a)"/>
+    <path d="M425,220 C436,220 436,346 448,346" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#e1a)"/>
+
+    <!-- Vector A (purple) -->
+    <rect x="452" y="54" width="112" height="60" rx="8" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text x="459" y="70" font-family="'Segoe UI',sans-serif" font-size="9" fill="#8b5cf6">Vector A</text>
+    <text x="508" y="83" text-anchor="middle" font-family="'Menlo',monospace" font-size="10" fill="#7c3aed">[0.21, -0.87, 0.44, ...]</text>
+    <text x="508" y="99" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#8b5cf6">384 numbers</text>
+
+    <!-- Vector B (purple) -->
+    <rect x="452" y="185" width="112" height="60" rx="8" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text x="459" y="201" font-family="'Segoe UI',sans-serif" font-size="9" fill="#8b5cf6">Vector B</text>
+    <text x="508" y="214" text-anchor="middle" font-family="'Menlo',monospace" font-size="10" fill="#7c3aed">[0.22, -0.85, 0.46, ...]</text>
+    <text x="508" y="230" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#8b5cf6">384 numbers</text>
+
+    <!-- Vector C (red) -->
+    <rect x="452" y="316" width="112" height="60" rx="8" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+    <text x="459" y="332" font-family="'Segoe UI',sans-serif" font-size="9" fill="#ef4444">Vector C</text>
+    <text x="508" y="345" text-anchor="middle" font-family="'Menlo',monospace" font-size="10" fill="#dc2626">[0.68, 0.11, -0.92, ...]</text>
+    <text x="508" y="361" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#ef4444">384 numbers</text>
+
+    <!-- Dashed arrows → Right panel -->
+    <path d="M564,84 L579,148" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#e1b)"/>
+    <path d="M564,215 L577,215" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#e1b)"/>
+    <path d="M564,346 L579,292" stroke="#fca5a5" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#e1c)"/>
+
+    <!-- ── RIGHT PANEL: 3D VECTOR SPACE ── -->
+    <text x="736" y="27" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#374151" font-weight="800">VISUAL VECTOR SPACE</text>
+    <text x="736" y="42" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#9ca3af">(3D representation)</text>
+    <!-- small chart icon -->
+    <rect x="866" y="12" width="22" height="20" rx="3" fill="#e2e8f0"/>
+    <polyline points="870,28 876,20 882,24 888,15" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
+
+    <!-- 3D FLOOR: parallelogram (604,400)→(800,400)→(840,302)→(644,302) -->
+    <polygon points="604,400 800,400 840,302 644,302" fill="#e2e8f0" opacity="0.45"/>
+    <!-- Floor grid lines dim1 direction -->
+    <line x1="617" y1="367" x2="813" y2="367" stroke="#cbd5e1" stroke-width="0.8"/>
+    <line x1="631" y1="335" x2="827" y2="335" stroke="#cbd5e1" stroke-width="0.8"/>
+    <!-- Floor grid lines dim2 direction -->
+    <line x1="669" y1="400" x2="709" y2="302" stroke="#cbd5e1" stroke-width="0.8"/>
+    <line x1="735" y1="400" x2="775" y2="302" stroke="#cbd5e1" stroke-width="0.8"/>
+
+    <!-- 3 main axes -->
+    <path d="M604,400 L820,400" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#e1ax)"/>
+    <path d="M604,400 L668,242" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#e1ax)"/>
+    <path d="M604,400 L604,238" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#e1ax)"/>
+    <!-- Axis labels -->
+    <text x="824" y="409" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6b7280">Dimension 1</text>
+    <text x="670" y="237" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6b7280">Dimension 2</text>
+    <text x="581" y="235" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6b7280">Dimension 3</text>
+
+    <!-- Drop shadow lines from points to floor -->
+    <line x1="706" y1="280" x2="706" y2="325" stroke="#93c5fd" stroke-width="1" stroke-dasharray="3,2" opacity="0.6"/>
+    <line x1="722" y1="272" x2="722" y2="317" stroke="#93c5fd" stroke-width="1" stroke-dasharray="3,2" opacity="0.6"/>
+    <line x1="808" y1="258" x2="808" y2="303" stroke="#fca5a5" stroke-width="1" stroke-dasharray="3,2" opacity="0.6"/>
+
+    <!-- POINT A (blue) -->
+    <circle cx="706" cy="280" r="10" fill="#2563eb" stroke="white" stroke-width="2.5"/>
+    <text x="688" y="268" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#1e40af" font-weight="700">Point A</text>
+
+    <!-- POINT B (blue, very close to A) -->
+    <circle cx="723" cy="271" r="10" fill="#3b82f6" stroke="white" stroke-width="2.5"/>
+    <text x="738" y="264" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#1e40af" font-weight="700">Point B</text>
+
+    <!-- POINT C (red, far upper-right) -->
+    <circle cx="812" cy="255" r="10" fill="#dc2626" stroke="white" stroke-width="2.5"/>
+    <text x="828" y="250" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#991b1b" font-weight="700">Point C</text>
+
+    <!-- Cosine Similarity A-B -->
+    <path d="M714,272 Q716,259 722,272" stroke="#16a34a" stroke-width="1.5" fill="none"/>
+    <rect x="592" y="138" width="138" height="36" rx="8" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+    <text x="661" y="152" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#15803d" font-weight="700">Cosine Similarity (A, B):</text>
+    <text x="661" y="166" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#16a34a" font-weight="800">0.97 — very similar!</text>
+    <path d="M714,272 L714,176" stroke="#16a34a" stroke-width="1" stroke-dasharray="3,2"/>
+
+    <!-- Cosine Similarity A-C curved arrow -->
+    <path d="M716,271 Q763,248 802,256" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#e1c)"/>
+    <rect x="726" y="330" width="140" height="36" rx="8" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5"/>
+    <text x="796" y="344" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#dc2626" font-weight="700">Cosine Similarity (A, C):</text>
+    <text x="796" y="358" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#dc2626" font-weight="800">0.15 — unrelated</text>
+    <path d="M812,265 L812,329" stroke="#dc2626" stroke-width="1" stroke-dasharray="3,2"/>
+  </svg>
+</div>
+
+<p>
+  The model we used — <code>all-MiniLM-L6-v2</code> — converts any text into a 384-number vector. Two sentences about authentication will have very similar vectors. A sentence about database schemas will have a more distant vector. This is how "search by meaning" works: you convert your query to a vector and find database entries whose vectors are mathematically close.
+</p>
+
+<h3>The Plan: Store All Facts in a Vector DB</h3>
+
+<p>
+  The approach seemed clean. Every time I learn something worth remembering — a decision, a code pattern, an architecture choice — I store it as a fact. The fact gets embedded into a vector. When I start a new AI session, I embed my current question and retrieve the most relevant facts.
+</p>
+
+<p>
+  So I started storing facts. Auth flow for Project 1. Database schema for Project 1. Then I started on Project 2 — a content platform with its own auth flow and schema. Everything going into the same vector space.
+</p>
+
+<p>
+  Then I ran a query: <em>"How does authentication work?"</em>
+</p>
+
+<div class="callout warning">
+  <div class="callout-title">⚠️ The Problem</div>
+  The search came back with facts from <strong>both</strong> Project 1 and Project 2. The auth patterns were different — one used signed tokens, the other used session cookies — but the vector search didn't know that. It just saw two facts that both talked about "authentication" and returned both of them as relevant matches.
+</div>
+
+<p>
+  This wasn't a bug. It was working exactly as designed. Vector search finds semantic similarity — it doesn't know which project a fact belongs to, and it doesn't care. Everything lives in one flat space, and the search returns whatever is most similar to your query.
+</p>
+
+<div class="diagram">
+  <div class="diagram-title">Context Collapse &amp; Vector Space Overlap — Project 1 vs Project 2</div>
+  <svg viewBox="0 0 900 460" width="100%" style="min-height:280px">
+    <defs>
+      <marker id="e2a" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#94a3b8"/></marker>
+      <marker id="e2b" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#8b5cf6"/></marker>
+      <marker id="e2c" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#dc2626"/></marker>
+      <marker id="e2y" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L10,4 z" fill="#d97706"/></marker>
+      <marker id="e2ax" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#94a3b8"/></marker>
+    </defs>
+
+    <!-- ── PANEL BACKGROUNDS ── -->
+    <rect x="4" y="4" width="157" height="452" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <rect x="169" y="4" width="400" height="452" rx="10" fill="white" stroke="#e5e7eb" stroke-width="1.5"/>
+    <rect x="577" y="4" width="319" height="452" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+
+    <!-- ── LEFT PANEL ── -->
+    <text x="83" y="28" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af" font-weight="800" letter-spacing="0.5">WHAT ARE EMBEDDINGS?</text>
+    <text x="83" y="42" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#3b82f6">(P1 vs P2 Context)</text>
+    <line x1="14" y1="50" x2="151" y2="50" stroke="#bfdbfe" stroke-width="1"/>
+    <text x="12" y="70" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">Converting text to</text>
+    <text x="12" y="84" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">numbers that capture</text>
+    <text x="12" y="98" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">semantic meaning.</text>
+    <text x="12" y="122" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">Similar meanings →</text>
+    <text x="12" y="136" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">similar vectors →</text>
+    <text x="12" y="150" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">visually close.</text>
+    <!-- Problem section -->
+    <line x1="14" y1="165" x2="151" y2="165" stroke="#fecaca" stroke-width="1"/>
+    <text x="12" y="180" font-family="'Segoe UI',sans-serif" font-size="10" fill="#dc2626" font-weight="800">PROBLEM:</text>
+    <text x="12" y="195" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">Conflicting context</text>
+    <text x="12" y="209" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">from different projects</text>
+    <text x="12" y="223" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">(e.g., P1 Auth and</text>
+    <text x="12" y="237" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">P2 Auth) create</text>
+    <text x="12" y="251" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">collisions, causing</text>
+    <text x="12" y="265" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">queries to return</text>
+    <text x="12" y="279" font-family="'Segoe UI',sans-serif" font-size="10" fill="#374151">ambiguous results.</text>
+
+    <!-- ── CENTER PANEL ── -->
+    <text x="369" y="28" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#374151" font-weight="800" letter-spacing="0.5">INPUT &amp; EMBEDDING PROCESS</text>
+
+    <!-- Input A — Project 1 (blue) -->
+    <rect x="177" y="54" width="122" height="68" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+    <text x="184" y="69" font-family="'Segoe UI',sans-serif" font-size="8" fill="#2563eb" font-weight="700">[Project 1: Sentence A]</text>
+    <text x="238" y="84" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af" font-weight="600">"User logs in</text>
+    <text x="238" y="100" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af" font-weight="600">with password"</text>
+    <text x="238" y="114" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6b7280">Text A</text>
+
+    <!-- Input B — Project 2 (blue, same look — that's the point!) -->
+    <rect x="177" y="196" width="122" height="68" rx="8" fill="#eff6ff" stroke="#d97706" stroke-width="1.5"/>
+    <text x="184" y="211" font-family="'Segoe UI',sans-serif" font-size="8" fill="#d97706" font-weight="700">[Project 2: Sentence B]</text>
+    <text x="238" y="226" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af" font-weight="600">"Authentication</text>
+    <text x="238" y="242" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af" font-weight="600">via credentials"</text>
+    <text x="238" y="256" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6b7280">Text B</text>
+
+    <!-- Input C — Project 2 (red, unrelated) -->
+    <rect x="177" y="338" width="122" height="68" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+    <text x="184" y="353" font-family="'Segoe UI',sans-serif" font-size="8" fill="#dc2626" font-weight="700">[Project 2: Sentence C]</text>
+    <text x="238" y="368" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#991b1b" font-weight="600">"The cat</text>
+    <text x="238" y="384" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#991b1b" font-weight="600">sleeps..."</text>
+    <text x="238" y="398" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6b7280">Text C</text>
+
+    <!-- Arrows: Inputs → Model -->
+    <path d="M299,88 C318,88 320,225 331,225" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#e2a)"/>
+    <path d="M299,230 L331,230" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#e2a)"/>
+    <path d="M299,372 C318,372 320,235 331,235" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#e2a)"/>
+    <text x="312" y="160" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#9ca3af">embed()</text>
+
+    <!-- Embedding Model -->
+    <rect x="333" y="185" width="92" height="86" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1.5"/>
+    <rect x="346" y="197" width="66" height="50" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <line x1="339" y1="207" x2="346" y2="207" stroke="#475569" stroke-width="2"/>
+    <line x1="339" y1="217" x2="346" y2="217" stroke="#475569" stroke-width="2"/>
+    <line x1="339" y1="227" x2="346" y2="227" stroke="#475569" stroke-width="2"/>
+    <line x1="339" y1="237" x2="346" y2="237" stroke="#475569" stroke-width="2"/>
+    <line x1="412" y1="207" x2="419" y2="207" stroke="#475569" stroke-width="2"/>
+    <line x1="412" y1="217" x2="419" y2="217" stroke="#475569" stroke-width="2"/>
+    <line x1="412" y1="227" x2="419" y2="227" stroke="#475569" stroke-width="2"/>
+    <line x1="412" y1="237" x2="419" y2="237" stroke="#475569" stroke-width="2"/>
+    <text x="379" y="215" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#94a3b8" font-weight="700">EMBEDDING</text>
+    <text x="379" y="226" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#94a3b8" font-weight="700">MODEL</text>
+    <text x="379" y="261" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#60a5fa">all-MiniLM-L6-v2</text>
+
+    <!-- Arrows: Model → Vectors -->
+    <path d="M425,222 C436,222 436,88 448,88" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#e2a)"/>
+    <path d="M425,228 L448,228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#e2a)"/>
+    <path d="M425,234 C436,234 436,372 448,372" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#e2a)"/>
+
+    <!-- Vector A [Project 1] purple -->
+    <rect x="452" y="54" width="112" height="68" rx="8" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text x="459" y="69" font-family="'Segoe UI',sans-serif" font-size="8" fill="#7c3aed" font-weight="700">Vector A [Project 1]</text>
+    <text x="508" y="83" text-anchor="middle" font-family="'Menlo',monospace" font-size="10" fill="#7c3aed">[0.21, -0.87, 0.44, ...]</text>
+    <text x="508" y="97" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#8b5cf6">384 numbers</text>
+    <text x="508" y="113" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#16a34a" font-weight="700">... very similar!</text>
+
+    <!-- Vector B [Project 2] — same color, same numbers — this is the problem! -->
+    <rect x="452" y="196" width="112" height="68" rx="8" fill="#f5f3ff" stroke="#d97706" stroke-width="1.5"/>
+    <text x="459" y="211" font-family="'Segoe UI',sans-serif" font-size="8" fill="#d97706" font-weight="700">Vector B [Project 2]</text>
+    <text x="508" y="225" text-anchor="middle" font-family="'Menlo',monospace" font-size="10" fill="#7c3aed">[0.22, -0.85, 0.46, ...]</text>
+    <text x="508" y="239" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#8b5cf6">384 numbers</text>
+    <text x="508" y="255" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#16a34a" font-weight="700">... very similar!</text>
+
+    <!-- Vector C (red) -->
+    <rect x="452" y="338" width="112" height="68" rx="8" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+    <text x="459" y="353" font-family="'Segoe UI',sans-serif" font-size="8" fill="#ef4444">Vector C</text>
+    <text x="508" y="367" text-anchor="middle" font-family="'Menlo',monospace" font-size="10" fill="#dc2626">[0.68, 0.11, -0.92, ...]</text>
+    <text x="508" y="381" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#ef4444">384 numbers</text>
+
+    <!-- Dashed arrows → right panel -->
+    <path d="M564,88 L579,155" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#e2b)"/>
+    <path d="M564,230 L577,230" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#e2b)"/>
+    <path d="M564,372 L579,310" stroke="#fca5a5" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#e2c)"/>
+
+    <!-- Bottom caption -->
+    <text x="369" y="432" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6b7280">High-similarity facts from different projects create collisions — generic queries return ambiguous results.</text>
+
+    <!-- ── RIGHT PANEL: 3D VECTOR SPACE with OVERLAP ZONE ── -->
+    <text x="736" y="27" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#374151" font-weight="800">VISUAL VECTOR SPACE</text>
+    <text x="736" y="42" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#9ca3af">(3D representation)</text>
+    <rect x="866" y="12" width="22" height="20" rx="3" fill="#e2e8f0"/>
+    <polyline points="870,28 876,20 882,24 888,15" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
+
+    <!-- 3D FLOOR -->
+    <polygon points="604,415 800,415 840,317 644,317" fill="#e2e8f0" opacity="0.45"/>
+    <line x1="617" y1="382" x2="813" y2="382" stroke="#cbd5e1" stroke-width="0.8"/>
+    <line x1="631" y1="350" x2="827" y2="350" stroke="#cbd5e1" stroke-width="0.8"/>
+    <line x1="669" y1="415" x2="709" y2="317" stroke="#cbd5e1" stroke-width="0.8"/>
+    <line x1="735" y1="415" x2="775" y2="317" stroke="#cbd5e1" stroke-width="0.8"/>
+
+    <!-- Axes -->
+    <path d="M604,415 L820,415" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#e2ax)"/>
+    <path d="M604,415 L668,257" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#e2ax)"/>
+    <path d="M604,415 L604,253" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#e2ax)"/>
+    <text x="824" y="424" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6b7280">Dimension 1</text>
+    <text x="670" y="252" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6b7280">Dimension 2</text>
+    <text x="581" y="250" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6b7280">Dimension 3</text>
+
+    <!-- ★ CONTEXT OVERLAP ZONE — yellow ellipse around A and B -->
+    <ellipse cx="715" cy="290" rx="50" ry="36" fill="#fef9c3" stroke="#f59e0b" stroke-width="2" stroke-dasharray="0" opacity="0.85"/>
+    <text x="715" y="340" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#d97706" font-weight="800">⚠ CONTEXT OVERLAP ZONE</text>
+    <text x="715" y="350" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#92400e">(Project Ambiguity)</text>
+
+    <!-- Red dashed ellipse around Point C (P2 Cats — unrelated cluster) -->
+    <ellipse cx="820" cy="262" rx="30" ry="22" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>
+
+    <!-- Query arrow pointing into overlap zone -->
+    <path d="M736,100 L716,252" stroke="#d97706" stroke-width="2.5" marker-end="url(#e2y)"/>
+    <rect x="668" y="72" width="170" height="36" rx="8" fill="#fffbeb" stroke="#fde68a" stroke-width="1.5"/>
+    <text x="753" y="86" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#92400e" font-weight="700">Query: 'Authentication</text>
+    <text x="753" y="100" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#92400e" font-weight="700">methods' (returns P1 &amp; P2!)</text>
+
+    <!-- Drop shadows -->
+    <line x1="706" y1="295" x2="706" y2="337" stroke="#93c5fd" stroke-width="1" stroke-dasharray="3,2" opacity="0.5"/>
+    <line x1="724" y1="285" x2="724" y2="325" stroke="#93c5fd" stroke-width="1" stroke-dasharray="3,2" opacity="0.5"/>
+    <line x1="820" y1="268" x2="820" y2="320" stroke="#fca5a5" stroke-width="1" stroke-dasharray="3,2" opacity="0.5"/>
+
+    <!-- POINT A — P1 Auth (blue) -->
+    <circle cx="706" cy="295" r="10" fill="#2563eb" stroke="white" stroke-width="2.5"/>
+    <text x="687" y="283" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#1e40af" font-weight="700">Point A</text>
+    <text x="687" y="293" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#1e40af">(P1 Auth)</text>
+
+    <!-- POINT B — P2 Auth (blue, same cluster as A!) -->
+    <circle cx="724" cy="283" r="10" fill="#3b82f6" stroke="white" stroke-width="2.5"/>
+    <text x="742" y="274" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#1e40af" font-weight="700">Point B</text>
+    <text x="742" y="284" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#1e40af">(P2 Auth)</text>
+
+    <!-- POINT C — P2 Cats (red, separate) -->
+    <circle cx="820" cy="262" r="10" fill="#dc2626" stroke="white" stroke-width="2.5"/>
+    <text x="836" y="256" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#991b1b" font-weight="700">Point C</text>
+    <text x="836" y="266" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#991b1b">(P2 Cats)</text>
+
+    <!-- A-B similarity label -->
+    <rect x="588" y="150" width="138" height="36" rx="8" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+    <text x="657" y="164" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#15803d" font-weight="700">Cosine Similarity (A, B):</text>
+    <text x="657" y="178" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#16a34a" font-weight="800">0.97 — very similar!</text>
+    <path d="M714,284 L714,188" stroke="#16a34a" stroke-width="1" stroke-dasharray="3,2"/>
+
+    <!-- Result banner -->
+    <rect x="586" y="390" width="306" height="50" rx="8" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5"/>
+    <text x="739" y="408" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#dc2626" font-weight="800">RESULT: A query for 'Auth Flow' returns facts</text>
+    <text x="739" y="422" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#dc2626" font-weight="800">for both projects — conflict of context collapse.</text>
+  </svg>
+</div>
+
+<p>
+  "Auth flow" in Project 1 and "auth flow" in Project 2 land in very similar positions in vector space. They talk about the same concept. So when I query "authentication", I get both. The vector database has no concept of <em>project boundaries</em>. Everything is just a cloud of points, and the search grabs whatever is nearest.
+</p>
+
+<p>
+  This might sound manageable for two projects. But think about it at scale — six months of saved facts, five different projects, overlapping tech stacks. The query results become noise. You'd be feeding the LLM a mix of partially-relevant context that could contradict itself, and the model would try to use all of it.
+</p>
+
+<div class="callout warning">
+  <div class="callout-title">🚨 Why This Hurts the LLM</div>
+  When you inject conflicting or unrelated context into an LLM's prompt, it doesn't discard the noise — it tries to reconcile it. If Project 1 uses tokens and Project 2 uses sessions, and both facts arrive together, the model might give you a confused hybrid answer that applies to neither. More context isn't always better context.
+</div>
+
+<p>
+  I needed a way to <strong>create hard boundaries between projects</strong> — so that when I'm working on Project 2, the memory system only retrieves facts about Project 2. A flat vector space couldn't give me that.
+</p>
+
+<!-- ─────────────────────────────────────── -->
+<!-- CHAPTER 4: GRAPH DB                    -->
+<!-- ─────────────────────────────────────── -->
+<hr class="divider"/>
+<div class="section-label">
+  <div class="pill" style="background:#f0fdf4;color:#16a34a;">Chapter 4</div>
+  <span style="color:#6b7280;">Attempt 2</span>
+</div>
+<h2>Graph Databases: Finally, Real Boundaries</h2>
+
+<p>
+  I started looking into Graph Databases. A graph database stores data as <strong>nodes</strong> and <strong>edges</strong>. Nodes are things (a Project, a Category, a Fact). Edges are relationships between them (Project "has" Category, Category "has" Fact).
+</p>
+
+<p>
+  The key insight: you can make a <strong>Profile node</strong> the root of an entire sub-graph. Everything about Project 1 hangs off the Project 1 node. Everything about Project 2 hangs off the Project 2 node. When you query, you start from a specific root — and by definition you can never cross into the other project's data.
+</p>
+
+<div class="diagram">
+  <div class="diagram-title">Graph DB: Two Root Nodes = Two Isolated Scopes</div>
+  <svg viewBox="0 0 680 300" width="680" height="300">
+    <!-- ── LEFT TREE: Project 1 ── -->
+    <!-- Root -->
+    <rect x="20" y="120" width="120" height="40" rx="8" fill="#1e40af" stroke="#1d4ed8" stroke-width="1.5"/>
+    <text x="80" y="135" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="12" fill="white" font-weight="700">Profile</text>
+    <text x="80" y="152" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#bfdbfe">Project 1</text>
+
+    <!-- Category: auth -->
+    <rect x="160" y="60" width="100" height="36" rx="7" fill="#3b82f6" stroke="#2563eb" stroke-width="1.5"/>
+    <text x="210" y="75" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="white" font-weight="600">Category</text>
+    <text x="210" y="90" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#bfdbfe">auth</text>
+    <line x1="140" y1="140" x2="160" y2="78" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="148" y="115" font-family="'Segoe UI',sans-serif" font-size="9" fill="#60a5fa" font-style="italic">HAS_CATEGORY</text>
+
+    <!-- Category: database -->
+    <rect x="160" y="180" width="100" height="36" rx="7" fill="#3b82f6" stroke="#2563eb" stroke-width="1.5"/>
+    <text x="210" y="195" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="white" font-weight="600">Category</text>
+    <text x="210" y="210" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#bfdbfe">database</text>
+    <line x1="140" y1="140" x2="160" y2="198" stroke="#93c5fd" stroke-width="1.5"/>
+
+    <!-- Facts under auth -->
+    <rect x="276" y="30" width="110" height="32" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="331" y="50" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af">Token-based auth</text>
+    <line x1="260" y1="78" x2="276" y2="46" stroke="#93c5fd" stroke-width="1"/>
+    <text x="262" y="65" font-family="'Segoe UI',sans-serif" font-size="9" fill="#60a5fa" font-style="italic">HAS_FACT</text>
+
+    <rect x="276" y="76" width="110" height="32" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="331" y="96" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af">Refresh every 7d</text>
+    <line x1="260" y1="78" x2="276" y2="92" stroke="#93c5fd" stroke-width="1"/>
+
+    <!-- Facts under database -->
+    <rect x="276" y="175" width="110" height="32" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="331" y="195" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af">PostgreSQL, users table</text>
+    <line x1="260" y1="198" x2="276" y2="191" stroke="#93c5fd" stroke-width="1"/>
+
+    <!-- ── DIVIDER ── -->
+    <line x1="410" y1="20" x2="410" y2="280" stroke="#e5e7eb" stroke-width="1.5" stroke-dasharray="6,4"/>
+    <text x="410" y="295" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#9ca3af">Hard boundary</text>
+
+    <!-- ── RIGHT TREE: Project 2 ── -->
+    <rect x="420" y="120" width="120" height="40" rx="8" fill="#991b1b" stroke="#b91c1c" stroke-width="1.5"/>
+    <text x="480" y="135" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="12" fill="white" font-weight="700">Profile</text>
+    <text x="480" y="152" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#fecaca">Project 2</text>
+
+    <!-- Category: auth P2 -->
+    <rect x="360" y="60" width="100" height="36" rx="7" fill="#ef4444" stroke="#dc2626" stroke-width="1.5"/>
+    <text x="410" y="75" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="white" font-weight="600">Category</text>
+    <text x="410" y="90" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#fecaca">auth</text>
+    <line x1="420" y1="140" x2="460" y2="78" stroke="#fca5a5" stroke-width="1.5"/>
+
+    <!-- Category: api P2 -->
+    <rect x="360" y="180" width="100" height="36" rx="7" fill="#ef4444" stroke="#dc2626" stroke-width="1.5"/>
+    <text x="410" y="195" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="white" font-weight="600">Category</text>
+    <text x="410" y="210" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#fecaca">api</text>
+    <line x1="420" y1="140" x2="460" y2="198" stroke="#fca5a5" stroke-width="1.5"/>
+
+    <!-- Facts P2 auth -->
+    <rect x="470" y="30" width="110" height="32" rx="6" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5"/>
+    <text x="525" y="50" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#991b1b">Session cookies</text>
+    <line x1="460" y1="78" x2="470" y2="46" stroke="#fca5a5" stroke-width="1"/>
+
+    <rect x="470" y="76" width="110" height="32" rx="6" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5"/>
+    <text x="525" y="96" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#991b1b">Expires 24h</text>
+    <line x1="460" y1="78" x2="470" y2="92" stroke="#fca5a5" stroke-width="1"/>
+
+    <!-- Facts P2 api -->
+    <rect x="470" y="175" width="110" height="32" rx="6" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5"/>
+    <text x="525" y="195" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#991b1b">REST, v2 endpoints</text>
+    <line x1="460" y1="198" x2="470" y2="191" stroke="#fca5a5" stroke-width="1"/>
+  </svg>
+</div>
+
+<p>
+  This is fundamentally different from a vector database. Here, <strong>Project 1 and Project 2 are separate root nodes</strong>. Their auth facts both exist — but they're attached to different parents. A query scoped to Project 1 never touches Project 2's sub-graph. The boundary is enforced by the graph structure itself.
+</p>
+
+<p>
+  We modelled it as three levels: <strong>Profile</strong> (the root — "Project 1") → <strong>Category</strong> (a topic — "auth", "database", "api") → <strong>Fact</strong> (the actual piece of knowledge — "Token-based auth, refreshes every 7 days").
+</p>
+
+<h3>But Graph DBs Have Their Own Problem</h3>
+
+<p>
+  Once I had the structure figured out, I hit the next wall: <em>how do I know where to put a new fact?</em>
+</p>
+
+<p>
+  Say I store a new fact: <em>"We switched from bcrypt to argon2 for password hashing in Project 1."</em> I need to figure out which Category node to attach it to. Is it "auth"? "security"? "dependencies"? What if the category doesn't exist yet — do I create a new one? Do I reuse the closest existing one?
+</p>
+
+<p>
+  In a graph database with pure graph traversal, finding the "most similar" existing node means you'd have to compare your new fact against every single node in the graph — one by one. That's O(N) for every write operation. It doesn't scale. And it gives you no numerical measure of <em>how</em> similar two facts are.
+</p>
+
+<div class="callout warning">
+  <div class="callout-title">⚠️ The Missing Piece</div>
+  A graph database gives you excellent structure and hard boundaries. But it can't answer the question: <em>"which existing node does this new fact most closely relate to?"</em> That requires some form of semantic similarity search — which graph databases don't natively provide.
+</div>
+
+<!-- ─────────────────────────────────────── -->
+<!-- CHAPTER 5: THE HYBRID INSIGHT          -->
+<!-- ─────────────────────────────────────── -->
+<hr class="divider"/>
+<div class="section-label">
+  <div class="pill" style="background:#f5f3ff;color:#7c3aed;">Chapter 5</div>
+  <span style="color:#6b7280;">The Breakthrough</span>
+</div>
+<h2>The Hybrid Approach: Graph Structure + Vector Embeddings</h2>
+
+<p>
+  Here's the insight that unlocked everything: <strong>what if I attached vector embeddings to graph nodes, instead of storing facts in a flat vector database?</strong>
+</p>
+
+<p>
+  I keep the graph structure — Profiles, Categories, Facts, all connected by edges. The hard boundaries stay. But I also embed each Fact node as a 384-dimensional vector and store that vector <em>directly on the node</em>. The facts live in the graph. The embeddings are just additional attributes on those graph nodes.
+</p>
+
+<div class="diagram">
+  <div class="diagram-title">Hybrid: Embeddings Attached to Graph Nodes</div>
+  <svg viewBox="0 0 680 230" width="680" height="230">
+    <!-- Profile 1 -->
+    <rect x="10" y="95" width="100" height="40" rx="8" fill="#1e40af"/>
+    <text x="60" y="110" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="white" font-weight="700">Profile</text>
+    <text x="60" y="126" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#bfdbfe">Project 1</text>
+    <line x1="110" y1="115" x2="150" y2="80" stroke="#93c5fd" stroke-width="1.5"/>
+    <line x1="110" y1="115" x2="150" y2="155" stroke="#93c5fd" stroke-width="1.5"/>
+
+    <!-- Category auth -->
+    <rect x="154" y="58" width="90" height="34" rx="7" fill="#3b82f6"/>
+    <text x="199" y="72" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="white" font-weight="600">Category</text>
+    <text x="199" y="86" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#bfdbfe">auth</text>
+    <line x1="244" y1="75" x2="280" y2="60" stroke="#93c5fd" stroke-width="1"/>
+    <line x1="244" y1="75" x2="280" y2="100" stroke="#93c5fd" stroke-width="1"/>
+
+    <!-- Category db -->
+    <rect x="154" y="138" width="90" height="34" rx="7" fill="#3b82f6"/>
+    <text x="199" y="152" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="white" font-weight="600">Category</text>
+    <text x="199" y="166" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#bfdbfe">database</text>
+    <line x1="244" y1="155" x2="280" y2="155" stroke="#93c5fd" stroke-width="1"/>
+
+    <!-- Facts with vector labels -->
+    <!-- Fact 1 -->
+    <rect x="284" y="30" width="150" height="46" rx="7" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="359" y="48" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af" font-weight="600">Token-based auth</text>
+    <text x="359" y="63" text-anchor="middle" font-family="'Menlo',monospace" font-size="9" fill="#7c3aed">vec: [0.21,-0.87,...]</text>
+
+    <!-- Fact 2 -->
+    <rect x="284" y="85" width="150" height="46" rx="7" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="359" y="103" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af" font-weight="600">Refresh every 7 days</text>
+    <text x="359" y="118" text-anchor="middle" font-family="'Menlo',monospace" font-size="9" fill="#7c3aed">vec: [0.19,-0.82,...]</text>
+
+    <!-- Fact 3 -->
+    <rect x="284" y="138" width="150" height="46" rx="7" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="359" y="156" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af" font-weight="600">PostgreSQL users table</text>
+    <text x="359" y="171" text-anchor="middle" font-family="'Menlo',monospace" font-size="9" fill="#7c3aed">vec: [0.55, 0.23,...]</text>
+
+    <!-- RELATED_TO edge between Fact1 and Fact2 -->
+    <path d="M 434 53 Q 460 53 460 108 Q 460 110 434 110" stroke="#7c3aed" stroke-width="1.5" fill="none" stroke-dasharray="4,2" marker-end="url(#varr)"/>
+    <text x="468" y="85" font-family="'Segoe UI',sans-serif" font-size="9" fill="#7c3aed" font-style="italic">RELATED_TO</text>
+
+    <!-- New fact being added -->
+    <rect x="480" y="130" width="150" height="60" rx="8" fill="#fefce8" stroke="#fde68a" stroke-width="2"/>
+    <text x="555" y="148" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#92400e" font-weight="700">NEW FACT</text>
+    <text x="555" y="163" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#78350f">"Argon2 for password</text>
+    <text x="555" y="178" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#78350f">hashing"</text>
+
+    <!-- Arrow: cosine similarity finds auth category -->
+    <path d="M 480 158 L 442 108" stroke="#d97706" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#oarr)"/>
+    <text x="450" y="135" font-family="'Segoe UI',sans-serif" font-size="9" fill="#d97706" font-style="italic">cosine sim → 0.89</text>
+    <text x="450" y="146" font-family="'Segoe UI',sans-serif" font-size="9" fill="#d97706" font-style="italic">attach to auth</text>
+
+    <defs>
+      <marker id="varr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"/>
+      </marker>
+      <marker id="oarr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#d97706"/>
+      </marker>
+    </defs>
+  </svg>
+</div>
+
+<p>
+  When I add a new fact, here's what happens:
+</p>
+
+<div class="steps">
+  <div class="step-row">
+    <div class="step-num" style="background:#eef2ff;color:#4f46e5;">1</div>
+    <div class="step-content">
+      <strong>The fact is embedded</strong>
+      <p>The text is converted into a 384-dimensional vector using the sentence-transformer model.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num" style="background:#eef2ff;color:#4f46e5;">2</div>
+    <div class="step-content">
+      <strong>Duplicate check</strong>
+      <p>A vector similarity search checks if a nearly identical fact already exists (similarity &gt; 0.95). If so, we skip it — no duplicates.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num" style="background:#eef2ff;color:#4f46e5;">3</div>
+    <div class="step-content">
+      <strong>Profile resolution</strong>
+      <p>If you specified a profile (Project 1), we use it. If not, we search existing fact embeddings across all profiles to find the closest match and auto-assign. If nothing is close enough, a new profile is created automatically.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num" style="background:#eef2ff;color:#4f46e5;">4</div>
+    <div class="step-content">
+      <strong>Fact node created in the graph</strong>
+      <p>A <code>:Fact</code> node is created in Neo4j, attached to its Profile and Category, with the embedding vector stored as an attribute.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num" style="background:#eef2ff;color:#4f46e5;">5</div>
+    <div class="step-content">
+      <strong>RELATED_TO edges wired automatically</strong>
+      <p>We search for other facts in the same profile and category with similarity &gt; 0.70. For each match, we create a bidirectional <code>[:RELATED_TO]</code> edge — pre-computed at write time so queries are fast.</p>
+    </div>
+  </div>
+</div>
+
+<h3>Querying: Two-Phase Retrieval</h3>
+
+<p>
+  When an AI tool asks "what do I know about authentication for Project 1?", the retrieval works in two phases:
+</p>
+
+<div class="diagram">
+  <div class="diagram-title">Two-Phase Retrieval: Vector Search → Graph Traversal</div>
+  <svg viewBox="0 0 680 180" width="680" height="180">
+    <!-- Phase 1 label -->
+    <rect x="10" y="10" width="310" height="160" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="165" y="30" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2563eb" font-weight="800" letter-spacing="1">PHASE 1 — VECTOR SEARCH</text>
+
+    <!-- Query -->
+    <rect x="22" y="40" width="130" height="32" rx="6" fill="#2563eb"/>
+    <text x="87" y="60" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="white">"How does auth work?"</text>
+    <path d="M 155 56 L 175 56" stroke="#2563eb" stroke-width="1.5" marker-end="url(#b2)"/>
+    <text x="163" y="48" font-family="'Segoe UI',sans-serif" font-size="9" fill="#3b82f6">embed()</text>
+
+    <rect x="178" y="40" width="130" height="32" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="243" y="57" text-anchor="middle" font-family="'Menlo',monospace" font-size="10" fill="#4f46e5">[0.21, -0.88, ...]</text>
+
+    <!-- ANN search result -->
+    <text x="22" y="100" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af" font-weight="700">ANN search → top-K facts (Profile 1 only)</text>
+    <rect x="22" y="108" width="130" height="30" rx="5" fill="#dbeafe" stroke="#93c5fd"/>
+    <text x="87" y="127" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af">Token-based auth</text>
+    <rect x="162" y="108" width="130" height="30" rx="5" fill="#dbeafe" stroke="#93c5fd"/>
+    <text x="227" y="127" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af">Refresh every 7d</text>
+
+    <!-- Arrow to phase 2 -->
+    <path d="M 324 90 L 354 90" stroke="#7c3aed" stroke-width="2" marker-end="url(#p2)"/>
+
+    <!-- Phase 2 label -->
+    <rect x="358" y="10" width="310" height="160" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text x="513" y="30" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#7c3aed" font-weight="800" letter-spacing="1">PHASE 2 — GRAPH TRAVERSAL</text>
+
+    <!-- Seed facts -->
+    <rect x="370" y="40" width="120" height="30" rx="5" fill="#c4b5fd"/>
+    <text x="430" y="59" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="white" font-weight="600">Token-based auth</text>
+
+    <!-- RELATED_TO arrow -->
+    <path d="M 492 55 L 516 55" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#p3)" stroke-dasharray="4,2"/>
+    <text x="503" y="48" font-family="'Segoe UI',sans-serif" font-size="8" fill="#7c3aed">RELATED_TO</text>
+
+    <rect x="518" y="40" width="140" height="30" rx="5" fill="#ede9fe" stroke="#c4b5fd"/>
+    <text x="588" y="59" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#7c3aed">Argon2 for hashing</text>
+
+    <!-- Result set -->
+    <rect x="370" y="110" width="286" height="44" rx="8" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="2"/>
+    <text x="513" y="128" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#16a34a" font-weight="700">Final context: 3–5 scoped, related facts</text>
+    <text x="513" y="145" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#15803d">Delivered to LLM — no cross-project noise</text>
+
+    <defs>
+      <marker id="b2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2563eb"/></marker>
+      <marker id="p2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"/></marker>
+      <marker id="p3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"/></marker>
+    </defs>
+  </svg>
+</div>
+
+<p>
+  Phase 1 is the vector search — fast, approximate, scoped to a specific profile. It finds the top-K semantically similar facts. Phase 2 follows the pre-computed <code>RELATED_TO</code> edges to pull in connected facts. The result is a tight, scoped bundle of context — no cross-project contamination, no noise.
+</p>
+
+<div class="callout success">
+  <div class="callout-title">✅ Why This Works Better</div>
+  <strong>Vector DB alone</strong>: Fast semantic search, but flat — no boundaries, results bleed across projects.<br/><br/>
+  <strong>Graph DB alone</strong>: Hard boundaries, structured — but can't answer "which node is this new fact most similar to?"<br/><br/>
+  <strong>Hybrid</strong>: The graph gives you structure and isolation. The embeddings give you semantic intelligence to navigate and connect within that structure.
+</div>
+
+<!-- ─────────────────────────────────────── -->
+<!-- CHAPTER 6: MCP                         -->
+<!-- ─────────────────────────────────────── -->
+<hr class="divider"/>
+<div class="section-label">
+  <div class="pill" style="background:#fefce8;color:#d97706;">Chapter 6</div>
+  <span style="color:#6b7280;">The Protocol</span>
+</div>
+<h2>MCP: The Glue That Connects It All</h2>
+
+<p>
+  We now have a memory system that can store scoped facts, find similar ones, and retrieve relevant context efficiently. But how does an AI tool actually talk to it? This is where MCP — the Model Context Protocol — comes in.
+</p>
+
+<h3>What Is MCP?</h3>
+
+<p>
+  MCP is an open standard from Anthropic that defines how AI models and the tools they use can communicate. Think of it like USB-C — a universal connector so that any AI application can plug into any set of tools without each pair needing its own custom integration.
+</p>
+
+<p>
+  There are three things in the MCP world you need to know:
+</p>
+
+<div class="steps">
+  <div class="step-row">
+    <div class="step-num" style="background:#fffbeb;color:#d97706;">🖥</div>
+    <div class="step-content">
+      <strong>MCP Host (Your Application)</strong>
+      <p>The application you're building — the thing that holds the conversation and interacts with the user. It contains both the LLM client and the MCP client.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num" style="background:#fffbeb;color:#d97706;">🔌</div>
+    <div class="step-content">
+      <strong>MCP Client (Inside Your App)</strong>
+      <p>A component that speaks the MCP protocol. It knows how to ask MCP servers what tools they offer, and how to ask them to run those tools.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num" style="background:#fffbeb;color:#d97706;">⚙️</div>
+    <div class="step-content">
+      <strong>MCP Server (Our Memory System)</strong>
+      <p>The thing we built. It exposes a set of tools — <code>store_fact</code>, <code>query_knowledge</code>, <code>list_profiles</code>, <code>list_categories</code> — and handles the logic of talking to Neo4j.</p>
+    </div>
+  </div>
+</div>
+
+<h3>The Initialization Handshake</h3>
+
+<p>
+  Before any conversation happens, your application needs to tell the LLM what tools are available. Here's how that works — based on a real MCP interaction sequence:
+</p>
+
+<div class="diagram">
+  <div class="diagram-title">MCP Full Interaction: From User Question to Final Answer</div>
+  <svg viewBox="0 0 760 560" width="760" height="560">
+    <!-- Lifeline headers -->
+    <rect x="10" y="10" width="90" height="36" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="55" y="32" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="12" fill="#334155" font-weight="700">User</text>
+
+    <rect x="120" y="10" width="90" height="36" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="165" y="27" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#334155" font-weight="700">Our Code</text>
+    <text x="165" y="40" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#64748b">(MCP Host)</text>
+
+    <rect x="230" y="10" width="90" height="36" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="275" y="27" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#1e40af" font-weight="700">MCP Client</text>
+    <text x="275" y="40" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#3b82f6">inside app</text>
+
+    <rect x="340" y="10" width="90" height="36" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+    <text x="385" y="27" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#15803d" font-weight="700">MCP Server</text>
+    <text x="385" y="40" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#16a34a">our memory</text>
+
+    <rect x="450" y="10" width="90" height="36" rx="6" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text x="495" y="32" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="12" fill="#6d28d9" font-weight="700">Claude/LLM</text>
+
+    <rect x="560" y="10" width="90" height="36" rx="6" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5"/>
+    <text x="605" y="32" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="12" fill="#b91c1c" font-weight="700">Neo4j DB</text>
+
+    <!-- Lifelines -->
+    <line x1="55" y1="46" x2="55" y2="550" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,4"/>
+    <line x1="165" y1="46" x2="165" y2="550" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,4"/>
+    <line x1="275" y1="46" x2="275" y2="550" stroke="#93c5fd" stroke-width="1" stroke-dasharray="4,4"/>
+    <line x1="385" y1="46" x2="385" y2="550" stroke="#86efac" stroke-width="1" stroke-dasharray="4,4"/>
+    <line x1="495" y1="46" x2="495" y2="550" stroke="#c4b5fd" stroke-width="1" stroke-dasharray="4,4"/>
+    <line x1="605" y1="46" x2="605" y2="550" stroke="#fca5a5" stroke-width="1" stroke-dasharray="4,4"/>
+
+    <!-- Phase band: INIT -->
+    <rect x="0" y="60" width="760" height="100" rx="0" fill="#fffbeb" opacity="0.5"/>
+    <text x="10" y="75" font-family="'Segoe UI',sans-serif" font-size="9" fill="#d97706" font-weight="800" letter-spacing="1.5">PHASE 0 — INITIALIZATION</text>
+
+    <!-- Step 1: User → Our Code -->
+    <path d="M 55 90 L 160 90" stroke="#334155" stroke-width="1.5" marker-end="url(#sa)"/>
+    <text x="108" y="85" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#334155">"What repositories do I have?"</text>
+
+    <!-- Step 2: Our Code → MCP Client -->
+    <path d="M 165 108 L 270 108" stroke="#1e40af" stroke-width="1.5" marker-end="url(#sa)"/>
+    <text x="218" y="103" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af">I need a list of tools</text>
+
+    <!-- Step 3: MCP Client → MCP Server: ListToolsRequest -->
+    <path d="M 275 125 L 380 125" stroke="#15803d" stroke-width="1.5" marker-end="url(#sa)"/>
+    <rect x="296" y="112" width="110" height="18" rx="4" fill="#d97706"/>
+    <text x="351" y="124" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="white" font-weight="700">ListToolsRequest</text>
+
+    <!-- Step 4: MCP Server → MCP Client: ListToolsResult -->
+    <path d="M 380 145" stroke="#15803d" stroke-width="1.5" stroke-dasharray="5,3" fill="none" d="M380 145 L275 145" marker-end="url(#sag)"/>
+    <line x1="380" y1="145" x2="275" y2="145" stroke="#15803d" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#sag)"/>
+    <rect x="296" y="132" width="110" height="18" rx="4" fill="#16a34a"/>
+    <text x="351" y="144" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="white" font-weight="700">ListToolsResult</text>
+
+    <!-- Phase band: DECIDE -->
+    <rect x="0" y="162" width="760" height="100" rx="0" fill="#f5f3ff" opacity="0.5"/>
+    <text x="10" y="177" font-family="'Segoe UI',sans-serif" font-size="9" fill="#7c3aed" font-weight="800" letter-spacing="1.5">PHASE 1 — LLM DECIDES WHICH TOOL TO USE</text>
+
+    <!-- Step 5: Our Code → Claude: Query + Tools -->
+    <path d="M 165 200 L 490 200" stroke="#6d28d9" stroke-width="1.5" marker-end="url(#sav)"/>
+    <rect x="274" y="187" width="100" height="18" rx="4" fill="#6d28d9"/>
+    <text x="324" y="199" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="white" font-weight="700">Query + Tools list</text>
+
+    <!-- Step 6: Claude → Our Code: ToolUse -->
+    <line x1="490" y1="220" x2="165" y2="220" stroke="#6d28d9" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#sav2)"/>
+    <rect x="274" y="207" width="100" height="18" rx="4" fill="#a855f7"/>
+    <text x="324" y="219" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="white" font-weight="700">ToolUse decision</text>
+
+    <!-- Phase band: EXECUTE -->
+    <rect x="0" y="265" width="760" height="170" rx="0" fill="#f0fdf4" opacity="0.5"/>
+    <text x="10" y="280" font-family="'Segoe UI',sans-serif" font-size="9" fill="#15803d" font-weight="800" letter-spacing="1.5">PHASE 2 — TOOL EXECUTION</text>
+
+    <!-- Step 7: Our Code → MCP Client: run tool with args -->
+    <path d="M 165 300 L 270 300" stroke="#1e40af" stroke-width="1.5" marker-end="url(#sa)"/>
+    <text x="218" y="293" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af">Run tool with args</text>
+
+    <!-- Step 8: MCP Client → MCP Server: CallToolRequest -->
+    <path d="M 275 318 L 380 318" stroke="#15803d" stroke-width="1.5" marker-end="url(#sa)"/>
+    <rect x="286" y="305" width="110" height="18" rx="4" fill="#d97706"/>
+    <text x="341" y="317" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="white" font-weight="700">CallToolRequest</text>
+
+    <!-- Step 9: MCP Server → Neo4j -->
+    <path d="M 385 338 L 600 338" stroke="#b91c1c" stroke-width="1.5" marker-end="url(#sar)"/>
+    <text x="493" y="332" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#b91c1c">Cypher query to DB</text>
+
+    <!-- Step 10: Neo4j → MCP Server -->
+    <line x1="600" y1="358" x2="385" y2="358" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#sar2)"/>
+    <text x="493" y="352" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#b91c1c">Result data</text>
+
+    <!-- Step 11: MCP Server → MCP Client: CallToolResult -->
+    <line x1="380" y1="378" x2="275" y2="378" stroke="#15803d" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#sag)"/>
+    <rect x="286" y="365" width="110" height="18" rx="4" fill="#16a34a"/>
+    <text x="341" y="377" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="white" font-weight="700">CallToolResult</text>
+
+    <!-- Step 12: MCP Client → Our Code -->
+    <line x1="270" y1="398" x2="165" y2="398" stroke="#1e40af" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#sa2)"/>
+    <text x="218" y="392" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af">Tool result</text>
+
+    <!-- Phase band: ANSWER -->
+    <rect x="0" y="420" width="760" height="115" rx="0" fill="#eff6ff" opacity="0.5"/>
+    <text x="10" y="435" font-family="'Segoe UI',sans-serif" font-size="9" fill="#1e40af" font-weight="800" letter-spacing="1.5">PHASE 3 — FINAL ANSWER</text>
+
+    <!-- Step 13: Our Code → Claude: toolResult -->
+    <path d="M 165 460 L 490 460" stroke="#6d28d9" stroke-width="1.5" marker-end="url(#sav)"/>
+    <rect x="274" y="447" width="100" height="18" rx="4" fill="#7c3aed"/>
+    <text x="324" y="459" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="white" font-weight="700">toolResult data</text>
+
+    <!-- Step 14: Claude → Our Code: Answer -->
+    <line x1="490" y1="480" x2="165" y2="480" stroke="#6d28d9" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#sav2)"/>
+    <text x="324" y="474" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#6d28d9">"Your repositories are..."</text>
+
+    <!-- Step 15: Our Code → User -->
+    <line x1="160" y1="510" x2="55" y2="510" stroke="#334155" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#sa3)"/>
+    <text x="108" y="504" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#334155">"Your repositories are..."</text>
+
+    <defs>
+      <marker id="sa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#334155"/></marker>
+      <marker id="sa2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#1e40af"/></marker>
+      <marker id="sa3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#334155"/></marker>
+      <marker id="sag" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#15803d"/></marker>
+      <marker id="sav" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#6d28d9"/></marker>
+      <marker id="sav2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#6d28d9"/></marker>
+      <marker id="sar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#b91c1c"/></marker>
+      <marker id="sar2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#b91c1c"/></marker>
+    </defs>
+  </svg>
+</div>
+
+<p>
+  The key moment in Phase 0 is the <strong>ListToolsRequest → ListToolsResult</strong> handshake. Before any user question is answered, the MCP client asks the MCP server: "what tools do you offer?" The server responds with a list of tool definitions — each with a name, description, and input schema. These definitions get injected into the LLM's system prompt.
+</p>
+
+<p>
+  Now when the user asks something, the LLM already knows what tools exist and what each one does. If it decides a tool is needed, it returns a <code>ToolUse</code> response with the tool name and arguments. Your code then sends a <code>CallToolRequest</code> to the MCP server, gets the result, and feeds it back to the LLM as <code>toolResult</code> to generate the final answer.
+</p>
+
+<h3>Why We Only Expose 4 Tools</h3>
+
+<p>
+  Here's something I didn't fully appreciate until I built this: <strong>every tool you expose gets injected into the LLM's context window</strong>. Each tool definition takes up tokens — and LLMs perform worse when their context is crowded with things they don't need.
+</p>
+
+<div class="compare">
+  <div class="compare-card" style="background:#fef2f2;border:1px solid #fecaca;">
+    <h4 style="color:#dc2626;">❌ Bad Practice</h4>
+    <li>Expose 30+ tools</li>
+    <li>All internal helpers as tools</li>
+    <li>~4,000 tokens of tool definitions</li>
+    <li>LLM has to choose from too many options</li>
+    <li>Tool selection becomes unreliable</li>
+    <li>Slower, more expensive API calls</li>
+  </div>
+  <div class="compare-card" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+    <h4 style="color:#16a34a;">✅ Our Approach</h4>
+    <li>Only 4 tools exposed to LLM</li>
+    <li>All complexity hidden inside server</li>
+    <li>~400 tokens of tool definitions</li>
+    <li>LLM has clear, unambiguous choices</li>
+    <li>Tool selection is accurate and fast</li>
+    <li>Leaner context = better responses</li>
+  </div>
+</div>
+
+<p>
+  Our 4 tools are: <code>store_fact</code> (save something to memory), <code>query_knowledge</code> (retrieve relevant facts), <code>list_profiles</code> (see what projects exist), and <code>list_categories</code> (see topic areas). Everything else — the embedding, the graph writes, the RELATED_TO edge creation, the profile resolution — happens inside the server invisibly. The LLM never needs to know how any of it works.
+</p>
+
+<!-- ─────────────────────────────────────── -->
+<!-- CHAPTER 7: WHAT WE BUILT               -->
+<!-- ─────────────────────────────────────── -->
+<hr class="divider"/>
+<div class="section-label">
+  <div class="pill" style="background:#f0fdf4;color:#16a34a;">Chapter 7</div>
+  <span style="color:#6b7280;">What We Built</span>
+</div>
+<h2>The Three Thresholds That Make It Work</h2>
+
+<p>
+  One of the most interesting parts of building this was realising how much of the system's behaviour comes down to three similarity thresholds — numerical dials that control how aggressive or conservative the system is about connecting facts together.
+</p>
+
+<div class="threshold-row">
+  <div class="threshold-seg" style="background:#fef2f2;">
+    <div class="val" style="color:#dc2626;">0.95</div>
+    <div class="lbl" style="color:#dc2626;">Duplicate</div>
+    <div class="desc">Above this → skip, it's the same fact</div>
+  </div>
+  <div class="threshold-seg" style="background:#fff7ed;">
+    <div class="val" style="color:#ea580c;">0.75</div>
+    <div class="lbl" style="color:#ea580c;">Profile Match</div>
+    <div class="desc">Above this → assign to existing profile</div>
+  </div>
+  <div class="threshold-seg" style="background:#f0fdf4;">
+    <div class="val" style="color:#16a34a;">0.70</div>
+    <div class="lbl" style="color:#16a34a;">Related</div>
+    <div class="desc">Above this → create RELATED_TO edge</div>
+  </div>
+</div>
+
+<p>
+  When a new fact arrives, the system checks in order: is it a duplicate (skip if yes)? Can it be matched to an existing profile (auto-assign if yes)? After it's created, which nearby facts should it be connected to (create edges for all above 0.70)?
+</p>
+
+<h3>Dynamic Profile Resolution</h3>
+
+<p>
+  One feature I added late in the build that turned out to be surprisingly useful: <em>you don't always have to specify which profile to save to.</em>
+</p>
+
+<div class="diagram">
+  <div class="diagram-title">Profile Resolution: Three Possible Outcomes</div>
+  <svg viewBox="0 0 680 220" width="680" height="220">
+    <!-- Start -->
+    <rect x="270" y="10" width="140" height="36" rx="8" fill="#0f172a"/>
+    <text x="340" y="33" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="12" fill="white" font-weight="700">store_fact() called</text>
+
+    <!-- Diamond: profile_id given? -->
+    <polygon points="340,60 400,90 340,120 280,90" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="340" y="86" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#334155" font-weight="600">profile_id</text>
+    <text x="340" y="100" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#334155" font-weight="600">given?</text>
+    <line x1="340" y1="46" x2="340" y2="60" stroke="#94a3b8" stroke-width="1.5"/>
+
+    <!-- YES branch -->
+    <path d="M 400 90 L 560 90" stroke="#16a34a" stroke-width="1.5" marker-end="url(#rd1)"/>
+    <text x="480" y="83" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#16a34a" font-weight="700">YES</text>
+    <rect x="562" y="74" width="110" height="32" rx="7" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+    <text x="617" y="87" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#15803d" font-weight="700">Use explicit</text>
+    <text x="617" y="100" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#15803d">profile_id</text>
+
+    <!-- NO branch: ANN search -->
+    <path d="M 340 120 L 340 148" stroke="#64748b" stroke-width="1.5" marker-end="url(#rd2)"/>
+    <text x="350" y="138" font-family="'Segoe UI',sans-serif" font-size="10" fill="#64748b" font-weight="700">NO</text>
+
+    <!-- Diamond: match found? -->
+    <polygon points="340,152 400,180 340,210 280,180" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="340" y="176" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#334155" font-weight="600">ANN match</text>
+    <text x="340" y="190" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#334155" font-weight="600">&gt; 0.75?</text>
+
+    <!-- YES match -->
+    <path d="M 400 180 L 480 180" stroke="#2563eb" stroke-width="1.5" marker-end="url(#rd3)"/>
+    <text x="440" y="173" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2563eb" font-weight="700">YES</text>
+    <rect x="482" y="164" width="110" height="32" rx="7" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="537" y="177" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af" font-weight="700">Assign to</text>
+    <text x="537" y="190" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#1e40af">matched profile</text>
+
+    <!-- NO match -->
+    <path d="M 280 180 L 120 180" stroke="#dc2626" stroke-width="1.5" marker-end="url(#rd4)"/>
+    <text x="200" y="173" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#dc2626" font-weight="700">NO</text>
+    <rect x="10" y="164" width="110" height="32" rx="7" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5"/>
+    <text x="65" y="177" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#991b1b" font-weight="700">Create new</text>
+    <text x="65" y="190" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#991b1b">profile</text>
+
+    <defs>
+      <marker id="rd1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#16a34a"/></marker>
+      <marker id="rd2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#64748b"/></marker>
+      <marker id="rd3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2563eb"/></marker>
+      <marker id="rd4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#dc2626"/></marker>
+    </defs>
+  </svg>
+</div>
+
+<p>
+  If you provide a profile ID explicitly — great, it uses it. If you don't, it does a quick ANN search across all existing profiles to find the closest match. Above 0.75 → auto-assign to that profile. Below 0.75 → create a new one automatically, named after the category and the current date. No manual profile management required.
+</p>
+
+<!-- ─────────────────────────────────────── -->
+<!-- CONCLUSION                             -->
+<!-- ─────────────────────────────────────── -->
+<hr class="divider"/>
+
+<div class="pull-quote">
+  "The goal was never to build the smartest AI.<br/>It was to stop re-explaining myself to it every morning."
+</div>
+
+<h2>What I Actually Ended Up With</h2>
+
+<p>
+  The system I built is a persistent, scoped, semantic memory server for AI tools. Any AI tool that supports MCP can connect to it, read from it, and write to it. Facts are stored in a Neo4j graph database. Each fact is embedded as a 384-dimensional vector for semantic search. Profiles act as hard isolation boundaries between projects.
+</p>
+
+<p>
+  When I open Claude now, it can call <code>query_knowledge</code> with my current topic and get back exactly the right facts — no re-explaining, no pasted paragraphs. When I discover something worth remembering, I call <code>store_fact</code> and it's there for the next session, across every AI tool I use.
+</p>
+
+<p>
+  The journey from "I just learned what MCP is" to a working hybrid memory server involved:
+</p>
+
+<div class="steps">
+  <div class="step-row">
+    <div class="step-num" style="background:#eef2ff;color:#4f46e5;">1</div>
+    <div class="step-content">
+      <strong>Learning MCP from Anthropic's docs and getting certified</strong>
+      <p>Understanding the Host/Client/Server/Tools architecture and the initialization handshake.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num" style="background:#eef2ff;color:#4f46e5;">2</div>
+    <div class="step-content">
+      <strong>Finding Graphiti and understanding the persistent memory problem</strong>
+      <p>Realising this is a real, solved problem — and deciding to build my own version for the learning experience.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num" style="background:#eef2ff;color:#4f46e5;">3</div>
+    <div class="step-content">
+      <strong>Trying a flat vector database and hitting the boundary problem</strong>
+      <p>Learning why semantic similarity alone isn't enough when you have multiple distinct projects.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num" style="background:#eef2ff;color:#4f46e5;">4</div>
+    <div class="step-content">
+      <strong>Moving to a graph database for structure and isolation</strong>
+      <p>Getting hard boundaries — but realising you still need semantic search to navigate the graph intelligently.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num" style="background:#eef2ff;color:#4f46e5;">5</div>
+    <div class="step-content">
+      <strong>The hybrid breakthrough: vector embeddings on graph nodes</strong>
+      <p>Combining the structure of a graph with the semantic intelligence of embeddings — graph for storage and isolation, vector similarity for navigation and connection.</p>
+    </div>
+  </div>
+</div>
+
+<div class="callout success">
+  <div class="callout-title">🚀 What You Can Take From This</div>
+  If you're building something with AI tools, think carefully about what context you're feeding the LLM and where that context comes from. A flat vector search feels easy but creates noise at scale. A graph gives you structure but needs semantic intelligence to populate it. And whatever complexity you build — hide it inside the MCP server. Keep the tool surface area small. Your LLM will thank you.
+</div>
+
+<p style="margin-top:40px;">
+  The code for this project — including all three layers (MCP server, Neo4j graph schema, embedding pipeline) — lives at the link below. Everything described in this post is implemented there, including the RELATED_TO edge creation, the dynamic profile resolution, and the two-phase retrieval. If you're building something similar, start with Graphiti. If you want to understand how it works from the inside, start here.
+</p>
+
+</div>
+</article>
+
+<footer>
+  <p>Built with Neo4j · sentence-transformers · Python MCP SDK</p>
+  <p style="margin-top:8px;">Inspired by <a href="https://github.com/getzep/graphiti" target="_blank">Graphiti</a> · MCP spec from <a href="https://modelcontextprotocol.io" target="_blank">modelcontextprotocol.io</a></p>
+  <p style="margin-top:8px;">Written for developers with 1–3 years of experience who want to understand AI memory systems from first principles.</p>
+</footer>
+
+</body>
+</html>
