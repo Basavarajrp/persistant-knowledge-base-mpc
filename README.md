@@ -198,6 +198,4 @@ docker ps | grep neo4j
 
 ## 📖 Need More?
 
-- **Full docs:** See `README.md`
-- **Architecture:** See `ARCHITECTURE_GUIDE.md`
-- **Setup help:** See `SETUP_GUIDE.md`
+- **Full docs:** See this [blog](https://basavarajrp.hashnode.dev/llm-persistant-memory)
