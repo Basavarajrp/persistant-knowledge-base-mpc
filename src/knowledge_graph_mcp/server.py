@@ -1,21 +1,27 @@
 """
-server.py — MCP Server entry point and tool router
-====================================================
+server.py — MCP Server entry point and tool/prompt router
+==========================================================
 
-This module owns the MCP Server instance. It:
-  1. Registers list_tools() — tells Claude which tools exist + their schemas
-  2. Registers call_tool() — routes every tool call to the correct handler
-  3. Runs the STDIO server loop (Claude Desktop transport)
-  4. Bootstraps Neo4j + embedding model on startup
+Owns the MCP Server instance. Responsibilities:
+    1. list_tools()    — tells Claude which tools exist + their schemas
+    2. call_tool()     — routes every tool call to the correct handler
+    3. list_prompts()  — tells Claude Desktop which '/' prompts exist
+    4. get_prompt()    — returns the prompt template by name
+    5. Server startup  — bootstraps Neo4j + embedding model on init
 
-Architecture principle (per Anthropic MCP guide):
-  Each tool is its own module (tools/store.py, tools/query.py, tools/profiles.py).
-  server.py collects their DEFINITION and handle() exports — it never contains
-  business logic itself. Adding a new tool = add a new module + register here.
+Architecture (per Anthropic MCP guide):
+    Each tool and prompt lives in its own module under tools/.
+    server.py only collects DEFINITION/handle exports — no business logic here.
+    Adding a new tool  = add module + register in _TOOL_HANDLERS + list_tools()
+    Adding a new prompt = add module + register in _PROMPT_HANDLERS + list_prompts()
+
+Knowledge graph hierarchy exposed via these tools:
+    Profile → Category → Fact
+    (list_profiles → list_categories → list_facts → preview_delete → delete_nodes)
 
 Transport:
-  STDIO — Claude Desktop launches this process and communicates via stdin/stdout.
-  No HTTP port needed. The process lifecycle is managed by Claude Desktop.
+    STDIO — Claude Desktop launches this process and communicates via stdin/stdout.
+    No HTTP port needed. Process lifecycle is managed by Claude Desktop.
 """
 
 import asyncio
@@ -24,27 +30,48 @@ import sys
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
+from mcp.types import GetPromptResult, Prompt, TextContent, Tool
 
 from knowledge_graph_mcp.db import client as db
 from knowledge_graph_mcp.db import embeddings
-from knowledge_graph_mcp.tools import store, query, profiles
+from knowledge_graph_mcp.tools import delete, profiles, prompts, query, store
 
 # ── MCP Server instance ───────────────────────────────────────────────────────
-# "knowledge-graph" is the display name Claude Desktop shows in its
-# connected servers list and in tool call traces.
+# "knowledge-graph" is the display name shown in Claude Desktop's server list
+# and in tool call traces.
 server = Server("knowledge-graph")
 
 
 # ── Tool registry ─────────────────────────────────────────────────────────────
-# Maps tool name → async handler function.
-# Adding a new tool: import its module, add its DEFINITION to list_tools(),
-# and add its handle() to this dict.
+# Maps tool name → async handler. Adding a tool: add module, register here,
+# add its DEFINITION to list_tools().
+#
+# Tool groups:
+#   Discovery  — list_profiles, list_categories, list_facts
+#   Core       — store_fact, query_knowledge
+#   Deletion   — preview_delete, delete_nodes  (always call preview first)
+
 _TOOL_HANDLERS: dict[str, callable] = {
-    "store_fact":       store.handle,
-    "query_knowledge":  query.handle,
+    # Discovery — understand what's in the graph before acting
     "list_profiles":    profiles.handle_list_profiles,
     "list_categories":  profiles.handle_list_categories,
+    "list_facts":       delete.handle_list_facts,
+
+    # Core — store and retrieve knowledge
+    "store_fact":       store.handle,
+    "query_knowledge":  query.handle,
+
+    # Deletion — preview → user confirms → execute
+    "preview_delete":   delete.handle_preview_delete,
+    "delete_nodes":     delete.handle_delete_nodes,
+}
+
+
+# ── Prompt registry ───────────────────────────────────────────────────────────
+# Maps prompt name → async handler. Prompts are triggered via '/' in Claude Desktop.
+# They inject a conversation template — unlike tools, the LLM doesn't auto-call them.
+_PROMPT_HANDLERS: dict[str, callable] = {
+    "knowledge-graph-delete": prompts.handle_delete_prompt,
 }
 
 
@@ -55,21 +82,26 @@ async def list_tools() -> list[Tool]:
     """
     Return all tool definitions to Claude.
 
-    Claude reads these once on connection to understand:
-      - Which tools are available (name)
-      - When to use each tool (description)
+    Claude reads these on connection to know:
+      - When to call each tool (description)
       - What arguments each tool expects (inputSchema)
+      - Which arguments are required vs optional
 
-    Per Anthropic best practices:
-      - Each description explains WHEN to call the tool, not just WHAT it does
-      - inputSchema has a description on every property
-      - Required vs optional fields are clearly separated
+    Ordered: discovery → core → deletion (mirrors natural usage flow).
     """
     return [
-        store.DEFINITION,
-        query.DEFINITION,
+        # Discovery
         profiles.LIST_PROFILES_DEFINITION,
         profiles.LIST_CATEGORIES_DEFINITION,
+        delete.LIST_FACTS_DEFINITION,
+
+        # Core
+        store.DEFINITION,
+        query.DEFINITION,
+
+        # Deletion (preview always before delete)
+        delete.PREVIEW_DELETE_DEFINITION,
+        delete.DELETE_NODES_DEFINITION,
     ]
 
 
@@ -84,11 +116,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
       - All output is JSON so Claude can parse and format results cleanly
       - Errors are structured JSON (not raw exceptions) so Claude can
         surface meaningful messages to the user
-      - A catch-all wraps every handler to prevent server crashes
+      - A catch-all prevents server crashes from unhandled exceptions
 
     Args:
         name:      Tool name sent by Claude (e.g. "store_fact")
-        arguments: Dict of arguments from Claude matching the tool's inputSchema
+        arguments: Dict of arguments matching the tool's inputSchema
 
     Returns:
         list[TextContent]: Single-item list with JSON result string.
@@ -105,19 +137,63 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         try:
             result = await handler(arguments)
         except Exception as exc:
-            # Catch-all: surface structured error so Claude can inform the user.
+            # Catch-all: return structured error so Claude can inform the user.
             # Never let an unhandled exception crash the server process.
             result = {
                 "status":  "error",
                 "code":    type(exc).__name__,
                 "message": str(exc),
-                "hint":    (
+                "hint": (
                     "Check that Neo4j is running (`docker compose up -d`) "
                     "and .env credentials match docker-compose.yml."
                 ),
             }
 
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+# ── list_prompts handler ──────────────────────────────────────────────────────
+
+@server.list_prompts()
+async def list_prompts() -> list[Prompt]:
+    """
+    Return all prompt definitions to Claude Desktop.
+
+    Claude Desktop shows these as '/' commands in the chat input.
+    Each prompt is a guided conversation template — the user triggers it
+    explicitly, unlike tools which the LLM calls automatically.
+    """
+    return [
+        prompts.DELETE_PROMPT,
+    ]
+
+
+# ── get_prompt handler ────────────────────────────────────────────────────────
+
+@server.get_prompt()
+async def get_prompt(name: str, arguments: dict | None) -> GetPromptResult:
+    """
+    Return the prompt template for a given prompt name.
+
+    Called by Claude Desktop when the user selects a '/' prompt.
+    The returned messages are injected into the conversation context.
+
+    Args:
+        name:      Prompt name (e.g. "knowledge-graph-delete")
+        arguments: Optional pre-fill args (none of our prompts use these yet)
+
+    Returns:
+        GetPromptResult with the conversation template messages.
+    """
+    handler = _PROMPT_HANDLERS.get(name)
+
+    if handler is None:
+        # Raise — MCP spec expects an error here, not a TextContent response
+        raise ValueError(
+            f"Unknown prompt '{name}'. Available: {list(_PROMPT_HANDLERS.keys())}"
+        )
+
+    return await handler(arguments or {})
 
 
 # ── Server startup ────────────────────────────────────────────────────────────
@@ -133,13 +209,13 @@ async def main() -> None:
         4. Start the MCP STDIO server loop — blocks until Claude disconnects
 
     Startup errors are written to stderr (stdout is reserved for MCP protocol).
-    Claude Desktop will show the server as "failed to connect" and the user
-    can check the logs to diagnose (typically: Neo4j not running).
+    Claude Desktop shows the server as "failed to connect" — check logs to diagnose
+    (usually: Neo4j not running, or wrong .env credentials).
     """
     try:
-        db.get_driver()           # Verify Neo4j connectivity
-        embeddings.embed_text("warmup")  # Pre-load model, cache it
-        db.initialise()           # Create constraints + vector index
+        db.get_driver()               # verify Neo4j connectivity
+        embeddings.embed_text("warmup")   # pre-load model, warm up cache
+        db.initialise()               # create constraints + vector index (idempotent)
     except Exception as exc:
         print(
             json.dumps({
@@ -150,8 +226,7 @@ async def main() -> None:
         )
         raise
 
-    # STDIO server loop — runs until Claude Desktop closes the connection.
-    # All communication happens via stdin/stdout using MCP JSON-RPC protocol.
+    # STDIO server loop — runs until Claude Desktop closes the connection
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
